@@ -11,11 +11,14 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
 - The bar is drawn with Xft directly, keeping only the one thing `drw.c`
   really buys you — drawing into an off-screen pixmap and blitting it, so
   redraws don't flicker — and dropping the rest of the abstraction.
-- The ICCCM/EWMH plumbing is dwm's, unchanged: `WM_STATE`, synthetic
-  `ConfigureNotify`, `_NET_SUPPORTING_WM_CHECK`/`_NET_SUPPORTED`,
-  `UnmapNotify` handling and `WM_NORMAL_HINTS`. This is the part sowm
-  leaves out, and the part real toolkit applications (anything Qt or GTK)
-  need in order to behave.
+- The ICCCM/EWMH plumbing is dwm's: `WM_STATE`, synthetic `ConfigureNotify`,
+  `_NET_SUPPORTING_WM_CHECK`/`_NET_SUPPORTED` and `UnmapNotify` handling.
+  This is the part sowm leaves out entirely, and the part real toolkit
+  applications (anything Qt or GTK) need in order to behave.
+- `WM_NORMAL_HINTS` is read for minimum and maximum size only. dwm also
+  reads base size, resize increments and aspect ratio, because there they
+  decide whether a window may be tiled at all; smawm floats everything, so
+  that question doesn't arise. See FEATURES.txt.
 
 ## Features
 

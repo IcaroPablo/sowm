@@ -309,13 +309,12 @@ configure(Client *c)
 	XSendEvent(dpy, c->win, False, StructureNotifyMask, (XEvent *)&ce);
 }
 
-/* dwm's applysizehints, minus the tiling branch: everything floats here, so
- * WM_NORMAL_HINTS always apply */
+/* dwm's applysizehints, minus the tiling branch (everything floats here, so
+ * WM_NORMAL_HINTS always apply) and minus the base/increment/aspect
+ * arithmetic - see updatesizehints() for why those were dropped. */
 int
 applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 {
-	int baseismin;
-
 	*w = MAX(1, *w);
 	*h = MAX(1, *h);
 	if (interact) {
@@ -343,28 +342,8 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 		*w = bh;
 	if (!c->hintsvalid)
 		updatesizehints(c);
-	/* see last two sentences in ICCCM 4.1.2.3 */
-	baseismin = c->basew == c->minw && c->baseh == c->minh;
-	if (!baseismin) { /* temporarily remove base dimensions */
-		*w -= c->basew;
-		*h -= c->baseh;
-	}
-	if (c->mina > 0 && c->maxa > 0) {
-		if (c->maxa < (float)*w / *h)
-			*w = *h * c->maxa + 0.5;
-		else if (c->mina < (float)*h / *w)
-			*h = *w * c->mina + 0.5;
-	}
-	if (baseismin) { /* increment calculation requires this */
-		*w -= c->basew;
-		*h -= c->baseh;
-	}
-	if (c->incw)
-		*w -= *w % c->incw;
-	if (c->inch)
-		*h -= *h % c->inch;
-	*w = MAX(*w + c->basew, c->minw);
-	*h = MAX(*h + c->baseh, c->minh);
+	*w = MAX(*w, c->minw);
+	*h = MAX(*h, c->minh);
 	if (c->maxw)
 		*w = MIN(*w, c->maxw);
 	if (c->maxh)
@@ -1224,6 +1203,16 @@ updatewindowtype(Client *c)
 	 * smawm, so a dialog needs nothing special */
 }
 
+/* WM_NORMAL_HINTS, reduced to the two limits clients here actually set.
+ * dwm reads the base size, the resize increments and the aspect ratio as
+ * well, because in dwm they decide whether a window may be tiled at all
+ * (a fixed-size window is forced to float). smawm floats everything, so
+ * that decision does not exist, and measuring what real clients publish
+ * found nothing left for the arithmetic to do: st asks for an increment
+ * of 1x1 because it wants smooth resizing rather than cell stepping, and
+ * nothing sets an aspect ratio or a base distinct from its minimum. See
+ * FEATURES.txt. ICCCM lets min and base stand in for each other, so a
+ * client that publishes only a base still yields a minimum here. */
 void
 updatesizehints(Client *c)
 {
@@ -1232,27 +1221,6 @@ updatesizehints(Client *c)
 
 	if (!XGetWMNormalHints(dpy, c->win, &size, &msize))
 		size.flags = PSize; /* size is uninitialized, ignore its flags */
-	if (size.flags & PBaseSize) {
-		c->basew = size.base_width;
-		c->baseh = size.base_height;
-	} else if (size.flags & PMinSize) {
-		c->basew = size.min_width;
-		c->baseh = size.min_height;
-	} else {
-		c->basew = c->baseh = 0;
-	}
-	if (size.flags & PResizeInc) {
-		c->incw = size.width_inc;
-		c->inch = size.height_inc;
-	} else {
-		c->incw = c->inch = 0;
-	}
-	if (size.flags & PMaxSize) {
-		c->maxw = size.max_width;
-		c->maxh = size.max_height;
-	} else {
-		c->maxw = c->maxh = 0;
-	}
 	if (size.flags & PMinSize) {
 		c->minw = size.min_width;
 		c->minh = size.min_height;
@@ -1262,13 +1230,12 @@ updatesizehints(Client *c)
 	} else {
 		c->minw = c->minh = 0;
 	}
-	if (size.flags & PAspect) {
-		c->mina = (float)size.min_aspect.y / size.min_aspect.x;
-		c->maxa = (float)size.max_aspect.x / size.max_aspect.y;
+	if (size.flags & PMaxSize) {
+		c->maxw = size.max_width;
+		c->maxh = size.max_height;
 	} else {
-		c->maxa = c->mina = 0.0;
+		c->maxw = c->maxh = 0;
 	}
-	c->isfixed = (c->maxw && c->maxh && c->maxw == c->minw && c->maxh == c->minh);
 	c->hintsvalid = 1;
 }
 

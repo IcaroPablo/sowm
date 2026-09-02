@@ -41,11 +41,11 @@ struct Client {
 	int x, y, w, h;
 	int oldx, oldy, oldw, oldh;
 	int bw, oldbw;                /* border width; oldbw is the client's own */
-	/* WM_NORMAL_HINTS, straight from dwm - without these a client that can
-	 * only take certain sizes gets resized anyway and argues back */
-	int basew, baseh, incw, inch, maxw, maxh, minw, minh;
-	float mina, maxa;
-	int isfixed, hintsvalid;
+	/* WM_NORMAL_HINTS - without these a client that can only take certain
+	 * sizes gets resized anyway and argues back. dwm also tracks base size,
+	 * resize increments, aspect ratio and isfixed; see updatesizehints(). */
+	int maxw, maxh, minw, minh;
+	int hintsvalid;
 	int neverfocus;               /* WM_HINTS input flag (dwm) */
 	int ismax, isfull;
 	int hidden;                   /* WE unmapped it, for a tag switch */
