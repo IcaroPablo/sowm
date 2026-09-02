@@ -23,12 +23,6 @@ static const char col_border_sel[]   = "#fe8019"; /* bright orange */
 /* tags */
 static const char *tags[TAGS] = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX" };
 
-static const Rule rules[] = {
-	/* class      instance    tag  ismax */
-	{ "Gimp",     NULL,       -1,  0 },
-	{ "Firefox",  NULL,        8,  0 },
-	{ "st",       NULL,       -1,  1 },
-};
 
 /* helper for spawning shell commands, dwm-style */
 #define SHCMD(cmd) { .com = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
@@ -63,7 +57,6 @@ static Key keys[] = {
 
 	{ MODKEY,              XK_j,                      focusstack,       {.i = +1} },
 	{ MODKEY,              XK_k,                      focusstack,       {.i = -1} },
-	{ MODKEY,              XK_space,                  togglemax,        {0} },
 	{ MODKEY,              XK_f,                      togglefullscreen, {0} },
 
 

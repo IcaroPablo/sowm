@@ -29,12 +29,6 @@ typedef struct {
 	const Arg arg;
 } Key;
 
-typedef struct {
-	const char *class;
-	const char *instance;
-	int tag;     /* -1 = don't force */
-	int ismax;   /* 1 = open maximized */
-} Rule;
 
 struct Client {
 	Window win;
@@ -45,9 +39,7 @@ struct Client {
 	 * sizes gets resized anyway and argues back. dwm also tracks base size,
 	 * resize increments, aspect ratio and isfixed; see updatesizehints(). */
 	int maxw, maxh, minw, minh;
-	int hintsvalid;
-	int neverfocus;               /* WM_HINTS input flag (dwm) */
-	int ismax, isfull;
+	int isfull;
 	int hidden;                   /* WE unmapped it, for a tag switch */
 	int tag;
 	Client *next, *prev;          /* circular list, one per tag */

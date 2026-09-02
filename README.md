@@ -32,19 +32,21 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
 - Everything floats. No layouts, no master area, no gaps.
 - `MODKEY`+drag with button 1 moves a window, button 3 resizes it (from the
   root, so it works no matter where on the window you grab).
+- `MODKEY+w` closes a window by killing its X connection outright. There is
+  no `WM_DELETE_WINDOW` handshake (sowm does the same), so an application
+  gets no chance to save first.
 - `MODKEY+Tab` returns to the tag you came from; pressing it again comes
   straight back, so it flips between the last two tags. dwm gets this from
   keeping two tag sets and flipping between them (`view` with argument 0);
   with a single selected tag it is one saved integer.
-- `MODKEY+space` toggles maximize (fills the window area, bar and border
-  stay visible); `MODKEY+f` toggles fullscreen (covers the whole screen, no
-  border, raised above the bar). Fullscreen also responds to
+- `MODKEY+f` toggles fullscreen (covers the whole screen, no border, raised
+  above the bar). Fullscreen also responds to
   `_NET_WM_STATE_FULLSCREEN` client messages, so browsers/video players
   requesting fullscreen themselves work too.
 - One screen, deliberately. smawm never asks Xinerama where the monitors
   are, so a dual-head setup behaves as a single wide screen — this is sowm's
   model, and it is why there is no `Monitor` type in the source. The cost is
-  that fullscreen and maximize cover both outputs, and new windows centre on
+  that fullscreen covers both outputs, and new windows centre on
   the seam. See FEATURES.txt.
 
 ## Build
@@ -61,8 +63,7 @@ afterwards, `config.def.h` is just the template — same convention as dwm).
 
 Everything lives in `config.h`: `MODKEY`, colors, the font (an Xft/fontconfig
 pattern, e.g. `CozetteVector:pixelsize=13`; `monospace:size=10` is used
-automatically if the configured one fails to load), tags, per-app rules
-(force a class to a tag), and keybindings. `config.h` was seeded
+automatically if the configured one fails to load), tags, and keybindings. `config.h` was seeded
 from the trimmed `my-dwm-fork2/config.h` keybindings/app choices — a few
 entries (`~/.scripts/sp`, `brave`, `ranger`, `slock`) assume tools from that
 setup; adjust or delete what doesn't apply to your machine.

@@ -31,16 +31,15 @@
 
 #include "smawm.h"
 
-enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast };
+enum { WMState, WMLast };
 /* the whole netatom array is published as _NET_SUPPORTED, exactly as dwm
  * does it: without that (and _NET_SUPPORTING_WM_CHECK) toolkits decide no
  * EWMH window manager is running and start doing fullscreen/maximise by
  * hand, fighting whatever the WM does */
 enum { NetActiveWindow, NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMStateFullscreen, NetWMWindowType, NetWMWindowTypeDialog,
-       NetClientList, NetLast };
+       NetLast };
 
-static void applyrules(Client *c);
 static int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact);
 static void attach(Client *c);
 static void buttonpress(XEvent *e);
@@ -59,10 +58,8 @@ static void drawborder(Client *c, int sel);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
-static void focusin(XEvent *e);
 static void focusstack(const Arg *arg);
 static Atom getatomprop(Client *c, Atom prop);
-static long getstate(Window w);
 static void grabinput(void);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
@@ -74,12 +71,8 @@ static void movetotag(const Arg *arg);
 static void propertynotify(XEvent *e);
 static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
-static void resizemax(Client *c);
 static void run(void);
-static void scan(void);
-static int sendevent(Client *c, Atom proto);
 static void setclientstate(Client *c, long state);
-static void setfocus(Client *c);
 static void setfullscreen(Client *c, int full);
 static void setup(void);
 static void showhide(Client *c, int show);
@@ -87,23 +80,19 @@ static void spawn(const Arg *arg);
 static int textw(const char *s);
 static void togglebar(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
-static void togglemax(const Arg *arg);
 static void quit(const Arg *arg);
-static void unmanage(Window w, int destroyed);
+static void unmanage(Window w);
 static void unmapnotify(XEvent *e);
 static void updatebarpos(void);
-static void updateclientlist(void);
 static void updatenumlockmask(void);
 static int updategeom(void);
 static void updatesizehints(Client *c);
 static void updatestatus(void);
 static void updatewindowtype(Client *c);
-static void updatewmhints(Client *c);
 static void view(const Arg *arg);
 static void viewtag(int tag);
 static Client *wintoclient(Window w);
 static int xerror(Display *dpy, XErrorEvent *ee);
-static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 
 #include "config.h"
@@ -149,7 +138,6 @@ static void (*handler[LASTEvent])(XEvent *e) = {
 	[DestroyNotify]    = destroynotify,
 	[EnterNotify]      = enternotify,
 	[Expose]           = expose,
-	[FocusIn]          = focusin,
 	[KeyPress]         = keypress,
 	[MapRequest]       = maprequest,
 	[MappingNotify]    = mappingnotify,
@@ -262,30 +250,6 @@ wintoclient(Window w)
 	return NULL;
 }
 
-void
-applyrules(Client *c)
-{
-	XClassHint ch = { NULL, NULL };
-	unsigned int i;
-
-	if (!XGetClassHint(dpy, c->win, &ch))
-		return;
-	for (i = 0; i < LENGTH(rules); i++) {
-		const Rule *r = &rules[i];
-		if ((!r->class || (ch.res_class && strstr(ch.res_class, r->class))) &&
-		    (!r->instance || (ch.res_name && strstr(ch.res_name, r->instance)))) {
-			if (r->tag >= 0)
-				c->tag = r->tag;
-			if (r->ismax)
-				c->ismax = 1;
-		}
-	}
-	if (ch.res_class)
-		XFree(ch.res_class);
-	if (ch.res_name)
-		XFree(ch.res_name);
-}
-
 /* tell a client where it actually ended up. ICCCM requires this whenever the
  * window is moved without being resized, or a ConfigureRequest is not granted
  * as asked; dwm calls it configure(). Without it clients never learn their
@@ -341,8 +305,6 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 		*h = bh;
 	if (*w < bh)
 		*w = bh;
-	if (!c->hintsvalid)
-		updatesizehints(c);
 	*w = MAX(*w, c->minw);
 	*h = MAX(*h, c->minh);
 	if (c->maxw)
@@ -374,16 +336,6 @@ resizeclient(Client *c, int x, int y, int w, int h)
 	XSync(dpy, False);
 }
 
-/* fill the window area, bar height worth of gap on every side, same as the
- * internal/external gaps updatebarpos keeps around the bar itself */
-void
-resizemax(Client *c)
-{
-	resize(c, wx + bh, wy + bh,
-			ww - 2 * c->bw - 2 * bh,
-			wh - 2 * c->bw - 2 * bh, 0);
-}
-
 void
 manage(Window w)
 {
@@ -408,12 +360,10 @@ manage(Window w)
 
 	/* dwm: a transient (dialog, file picker, ...) belongs wherever the
 	 * window it is transient for lives, not on whatever tag is selected */
-	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
+	if (XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans)))
 		c->tag = t->tag;
-	} else {
+	else
 		c->tag = seltag;
-		applyrules(c);
-	}
 
 	if (c->x == 0 && c->y == 0) {
 		c->x = wx + MAX(0, (ww - WIDTH(c)) / 2);
@@ -427,8 +377,6 @@ manage(Window w)
 	c->x = MAX(c->x, wx);
 	c->y = MAX(c->y, wy);
 
-	/* c->ismax may already be set by a matching rule (see applyrules); such
-	 * windows open maximized, MODKEY+space restores this natural size */
 	c->oldx = c->x;
 	c->oldy = c->y;
 	c->oldw = c->w;
@@ -439,19 +387,11 @@ manage(Window w)
 	configure(c); /* propagates border_width, if size doesn't change */
 	updatewindowtype(c); /* may already want to be fullscreen */
 	updatesizehints(c);
-	updatewmhints(c);
-	XSelectInput(dpy, w, EnterWindowMask|FocusChangeMask|StructureNotifyMask|
-			PropertyChangeMask);
+	XSelectInput(dpy, w, EnterWindowMask|StructureNotifyMask);
 	attach(c);
-	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32,
-			PropModeAppend, (unsigned char *)&(c->win), 1);
 
-	if (!c->isfull) { /* updatewindowtype already sized a fullscreen window */
-		if (c->ismax)
-			resizemax(c);
-		else
-			resizeclient(c, c->x, c->y, c->w, c->h);
-	}
+	if (!c->isfull) /* updatewindowtype already sized a fullscreen window */
+		resizeclient(c, c->x, c->y, c->w, c->h);
 	setclientstate(c, NormalState);
 
 	showhide(c, ISVISIBLE(c));
@@ -461,10 +401,9 @@ manage(Window w)
 }
 
 void
-unmanage(Window w, int destroyed)
+unmanage(Window w)
 {
 	Client *c = wintoclient(w);
-	XWindowChanges wc;
 	int wasfocused;
 
 	if (!c)
@@ -475,22 +414,9 @@ unmanage(Window w, int destroyed)
 	detach(c);
 	if (sel == c)
 		sel = NULL;
-	if (!destroyed) {
-		/* dwm's unmanage: hand the window back the way we found it */
-		wc.border_width = c->oldbw;
-		XGrabServer(dpy); /* avoid race conditions */
-		XSetErrorHandler(xerrordummy);
-		XSelectInput(dpy, c->win, NoEventMask);
-		XConfigureWindow(dpy, c->win, CWBorderWidth, &wc); /* restore border */
-		setclientstate(c, WithdrawnState);
-		XSync(dpy, False);
-		XSetErrorHandler(xerror);
-		XUngrabServer(dpy);
-	}
 	free(c);
 	if (wasfocused)
 		focus(taghead[seltag]);
-	updateclientlist();
 	drawbar();
 }
 
@@ -590,19 +516,6 @@ drawborder(Client *c, int sel)
 	XSetWindowBorder(dpy, c->win, sel ? border_sel : border_norm);
 }
 
-/* dwm's setfocus: WM_TAKE_FOCUS is how clients that ask not to be focused
- * directly (the "globally active" ICCCM model) get told they are current */
-void
-setfocus(Client *c)
-{
-	if (!c->neverfocus) {
-		XSetInputFocus(dpy, c->win, RevertToPointerRoot, CurrentTime);
-		XChangeProperty(dpy, root, netatom[NetActiveWindow], XA_WINDOW, 32,
-				PropModeReplace, (unsigned char *)&(c->win), 1);
-	}
-	sendevent(c, wmatom[WMTakeFocus]);
-}
-
 void
 focus(Client *c)
 {
@@ -615,7 +528,9 @@ focus(Client *c)
 	sel = c;
 	if (c) {
 		drawborder(c, 1);
-		setfocus(c);
+		XSetInputFocus(dpy, c->win, RevertToPointerRoot, CurrentTime);
+		XChangeProperty(dpy, root, netatom[NetActiveWindow], XA_WINDOW, 32,
+				PropModeReplace, (unsigned char *)&(c->win), 1);
 		XRaiseWindow(dpy, c->win);
 	} else {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
@@ -625,27 +540,6 @@ focus(Client *c)
 }
 
 /* ---- maximize / fullscreen ---- */
-
-void
-togglemax(const Arg *arg)
-{
-	Client *c = sel;
-
-	(void)arg;
-	if (!c || c->isfull)
-		return;
-	if (c->ismax) {
-		c->ismax = 0;
-		resize(c, c->oldx, c->oldy, c->oldw, c->oldh, 0);
-	} else {
-		c->oldx = c->x;
-		c->oldy = c->y;
-		c->oldw = c->w;
-		c->oldh = c->h;
-		c->ismax = 1;
-		resizemax(c);
-	}
-}
 
 void
 setfullscreen(Client *c, int full)
@@ -688,23 +582,9 @@ togglefullscreen(const Arg *arg)
 void
 togglebar(const Arg *arg)
 {
-	int t;
-
 	(void)arg;
 	showbar = !showbar;
 	updatebarpos();
-	/* maximized clients fill wx/wy/ww/wh, which updatebarpos just moved -
-	 * redimension them so they keep occupying that space, gaps included */
-	for (t = 0; t < TAGS; t++) {
-		Client *c = taghead[t], *s = c;
-		if (!c)
-			continue;
-		do {
-			if (s->ismax)
-				resizemax(s);
-			s = s->next;
-		} while (s != c);
-	}
 	drawbar();
 }
 
@@ -831,7 +711,6 @@ buttonpress(XEvent *e)
 	focus(c);
 	if (c->isfull)
 		return; /* dwm's movemouse refuses fullscreen windows too */
-	c->ismax = 0;
 	dragc = c;
 	dragbutton = ev->button;
 	dragorigx = ev->x_root;
@@ -940,7 +819,7 @@ maprequest(XEvent *e)
 void
 destroynotify(XEvent *e)
 {
-	unmanage(e->xdestroywindow.window, 1);
+	unmanage(e->xdestroywindow.window);
 }
 
 /* The handler smawm was missing entirely. Plenty of programs close a window
@@ -964,7 +843,7 @@ unmapnotify(XEvent *e)
 	/* a synthetic UnmapNotify is a client withdrawing the window (ICCCM
 	 * 4.1.4); a real one means it is gone from the screen. Either way it is
 	 * no longer ours to manage. */
-	unmanage(ev->window, 0);
+	unmanage(ev->window);
 }
 
 void
@@ -990,17 +869,6 @@ enternotify(XEvent *e)
 	focus(c);
 }
 
-/* dwm's focusin: a client that takes the input focus behind our back gets it
- * handed straight back to whatever is actually selected */
-void
-focusin(XEvent *e)
-{
-	XFocusChangeEvent *ev = &e->xfocus;
-
-	if (sel && ev->window != sel->win)
-		setfocus(sel);
-}
-
 void
 expose(XEvent *e)
 {
@@ -1009,35 +877,18 @@ expose(XEvent *e)
 		drawbar();
 }
 
-/* dwm's propertynotify. smawm selects PropertyChangeMask on every client but
- * used to look at nothing except the root window's name, so a client that
- * changed its size hints or its window type after mapping was never noticed. */
+/* The only property smawm still watches is the root window's name, which is
+ * how a status script feeds the bar (xsetroot -name, in a loop). dwm also
+ * tracks per-client hint and window-type changes here; those went with the
+ * rest of the ICCCM refinements - size hints are now read once when the
+ * window is managed, and fullscreen still arrives as a ClientMessage. */
 void
 propertynotify(XEvent *e)
 {
 	XPropertyEvent *ev = &e->xproperty;
-	Client *c;
 
-	if (ev->window == root && ev->atom == XA_WM_NAME) {
+	if (ev->window == root && ev->atom == XA_WM_NAME)
 		updatestatus();
-	} else if (ev->state == PropertyDelete) {
-		return; /* ignore */
-	} else if ((c = wintoclient(ev->window))) {
-		switch (ev->atom) {
-		default:
-			break;
-		case XA_WM_NORMAL_HINTS:
-			c->hintsvalid = 0;
-			break;
-		case XA_WM_HINTS:
-			updatewmhints(c);
-			break;
-		}
-		if (ev->atom == netatom[NetWMWindowType])
-			updatewindowtype(c);
-	}
-	/* dwm also re-floats a window that becomes transient here; in smawm
-	 * everything floats already, so there is nothing to do */
 }
 
 void
@@ -1102,33 +953,6 @@ spawn(const Arg *arg)
 	_exit(1);
 }
 
-int
-sendevent(Client *c, Atom proto)
-{
-	int n, exists = 0;
-	Atom *protocols;
-	XEvent ev;
-
-	if (XGetWMProtocols(dpy, c->win, &protocols, &n)) {
-		while (!exists && n--)
-			exists = protocols[n] == proto;
-		XFree(protocols);
-	}
-	if (exists) {
-		ev.type = ClientMessage;
-		ev.xclient.window = c->win;
-		ev.xclient.message_type = wmatom[WMProtocols];
-		ev.xclient.format = 32;
-		ev.xclient.data.l[0] = proto;
-		ev.xclient.data.l[1] = CurrentTime;
-		ev.xclient.data.l[2] = 0;
-		ev.xclient.data.l[3] = 0;
-		ev.xclient.data.l[4] = 0;
-		XSendEvent(dpy, c->win, False, NoEventMask, &ev);
-	}
-	return exists;
-}
-
 void
 killclient(const Arg *arg)
 {
@@ -1137,8 +961,10 @@ killclient(const Arg *arg)
 	(void)arg;
 	if (!c)
 		return;
-	if (!sendevent(c, wmatom[WMDelete]))
-		XKillClient(dpy, c->win);
+	/* sowm does exactly this. Without the WM_DELETE_WINDOW handshake an
+	 * application is killed outright rather than asked to close, so it gets
+	 * no chance to save first. */
+	XKillClient(dpy, c->win);
 }
 
 void
@@ -1159,24 +985,6 @@ setclientstate(Client *c, long state)
 
 	XChangeProperty(dpy, c->win, wmatom[WMState], wmatom[WMState], 32,
 			PropModeReplace, (unsigned char *)data, 2);
-}
-
-long
-getstate(Window w)
-{
-	int format;
-	long result = -1;
-	unsigned char *p = NULL;
-	unsigned long n, extra;
-	Atom real;
-
-	if (XGetWindowProperty(dpy, w, wmatom[WMState], 0L, 2L, False, wmatom[WMState],
-			&real, &format, &n, &extra, (unsigned char **)&p) != Success)
-		return -1;
-	if (n != 0)
-		result = *p;
-	XFree(p);
-	return result;
 }
 
 Atom
@@ -1243,38 +1051,6 @@ updatesizehints(Client *c)
 	} else {
 		c->maxw = c->maxh = 0;
 	}
-	c->hintsvalid = 1;
-}
-
-void
-updatewmhints(Client *c)
-{
-	XWMHints *wmh;
-
-	if ((wmh = XGetWMHints(dpy, c->win))) {
-		/* dwm also tracks XUrgencyHint here to colour the tag; smawm's bar
-		 * has no urgent state, so only the input hint matters */
-		c->neverfocus = (wmh->flags & InputHint) ? !wmh->input : 0;
-		XFree(wmh);
-	}
-}
-
-void
-updateclientlist(void)
-{
-	int t;
-
-	XDeleteProperty(dpy, root, netatom[NetClientList]);
-	for (t = 0; t < TAGS; t++) {
-		Client *c = taghead[t], *s = c;
-		if (!c)
-			continue;
-		do {
-			XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW,
-					32, PropModeAppend, (unsigned char *)&(s->win), 1);
-			s = s->next;
-		} while (s != c);
-	}
 }
 
 /* ---- setup ---- */
@@ -1301,14 +1077,6 @@ xerror(Display *d, XErrorEvent *ee)
 }
 
 int
-xerrordummy(Display *d, XErrorEvent *ee)
-{
-	(void)d;
-	(void)ee;
-	return 0;
-}
-
-int
 xerrorstart(Display *d, XErrorEvent *ee)
 {
 	(void)d;
@@ -1329,35 +1097,6 @@ checkotherwm(void)
 	XSync(dpy, False);
 }
 
-/* adopt the windows that were already on screen when we started - dwm's
- * scan(), and the same thing sowm's `watch` branch added */
-void
-scan(void)
-{
-	unsigned int i, num;
-	Window d1, d2, *wins = NULL;
-	XWindowAttributes wa;
-
-	if (!XQueryTree(dpy, root, &d1, &d2, &wins, &num))
-		return;
-	for (i = 0; i < num; i++) {
-		if (!XGetWindowAttributes(dpy, wins[i], &wa) || wa.override_redirect ||
-		    XGetTransientForHint(dpy, wins[i], &d1))
-			continue;
-		if (wa.map_state == IsViewable || getstate(wins[i]) == IconicState)
-			manage(wins[i]);
-	}
-	for (i = 0; i < num; i++) { /* now the transients */
-		if (!XGetWindowAttributes(dpy, wins[i], &wa))
-			continue;
-		if (XGetTransientForHint(dpy, wins[i], &d1) &&
-		    (wa.map_state == IsViewable || getstate(wins[i]) == IconicState))
-			manage(wins[i]);
-	}
-	if (wins)
-		XFree(wins);
-}
-
 /* hand every window back mapped, unmanaged and with its own border, so
  * quitting smawm doesn't strand the windows sitting on inactive tags */
 void
@@ -1369,7 +1108,7 @@ cleanup(void)
 	for (t = 0; t < TAGS; t++)
 		while ((c = taghead[t])) {
 			showhide(c, 1);
-			unmanage(c->win, 0);
+			unmanage(c->win);
 		}
 	XDestroyWindow(dpy, tagwin);
 	XDestroyWindow(dpy, statuswin);
@@ -1461,10 +1200,7 @@ setup(void)
 	XftColorAllocName(dpy, visual, cmap, col_fg_sel, &xftfg_sel);
 
 	utf8string = XInternAtom(dpy, "UTF8_STRING", False);
-	wmatom[WMProtocols] = XInternAtom(dpy, "WM_PROTOCOLS", False);
-	wmatom[WMDelete] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
 	wmatom[WMState] = XInternAtom(dpy, "WM_STATE", False);
-	wmatom[WMTakeFocus] = XInternAtom(dpy, "WM_TAKE_FOCUS", False);
 	netatom[NetActiveWindow] = XInternAtom(dpy, "_NET_ACTIVE_WINDOW", False);
 	netatom[NetSupported] = XInternAtom(dpy, "_NET_SUPPORTED", False);
 	netatom[NetWMName] = XInternAtom(dpy, "_NET_WM_NAME", False);
@@ -1473,7 +1209,6 @@ setup(void)
 	netatom[NetWMStateFullscreen] = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
 	netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
-	netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
 
 	/* the two bar windows. There is one screen, so they are made once here
 	 * rather than per monitor, and updategeom() places them. */
@@ -1507,7 +1242,6 @@ setup(void)
 			PropModeReplace, (unsigned char *)&wmcheckwin, 1);
 	XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
 			PropModeReplace, (unsigned char *)netatom, NetLast);
-	XDeleteProperty(dpy, root, netatom[NetClientList]);
 
 	XSelectInput(dpy, root, SubstructureRedirectMask|SubstructureNotifyMask|
 			PropertyChangeMask|EnterWindowMask|ButtonPressMask);
@@ -1536,7 +1270,6 @@ main(void)
 	}
 	checkotherwm();
 	setup();
-	scan();
 	XSync(dpy, False);
 	run();
 	cleanup();
