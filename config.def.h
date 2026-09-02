@@ -24,10 +24,10 @@ static const char col_border_sel[]   = "#fe8019"; /* bright orange */
 static const char *tags[TAGS] = { "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX" };
 
 static const Rule rules[] = {
-	/* class      instance    tag  monitor  ismax */
-	{ "Gimp",     NULL,       -1,  -1,      0 },
-	{ "Firefox",  NULL,        8,  -1,      0 },
-	{ "st",       NULL,       -1,  -1,      1 },
+	/* class      instance    tag  ismax */
+	{ "Gimp",     NULL,       -1,  0 },
+	{ "Firefox",  NULL,        8,  0 },
+	{ "st",       NULL,       -1,  1 },
 };
 
 /* helper for spawning shell commands, dwm-style */
@@ -65,10 +65,6 @@ static Key keys[] = {
 	{ MODKEY,              XK_space,                  togglemax,        {0} },
 	{ MODKEY,              XK_f,                      togglefullscreen, {0} },
 
-	{ MODKEY,              XK_Left,                   focusmon,         {.i = -1} },
-	{ MODKEY|ShiftMask,    XK_Left,                   tagmon,           {.i = -1} },
-	{ MODKEY,              XK_Right,                  focusmon,         {.i = +1} },
-	{ MODKEY|ShiftMask,    XK_Right,                  tagmon,           {.i = +1} },
 
 	{ MODKEY,              XK_Escape,                 spawn,            SHCMD("slock & xset dpms force off") },
 	{ 0,                   XK_Print,                  spawn,            SHCMD("scrot -f -s -q 100 -e 'xclip -selection clipboard -target image/png -i $f && rm $f'") },

@@ -1,7 +1,7 @@
 VERSION = 0.1
 PREFIX  = /usr/local
 
-PKGS = x11 xinerama xft
+PKGS = x11 xft
 
 CC = cc
 CFLAGS  = -std=c99 -Wall -Wextra -Os -D_DEFAULT_SOURCE -DVERSION=\"${VERSION}\" `pkg-config --cflags ${PKGS}`

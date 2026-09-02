@@ -11,11 +11,10 @@
 #define CLEANMASK(mask) ((mask) & ~(numlockmask|LockMask) & \
         (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
 
-#define ISVISIBLE(C) ((C)->tag == (C)->mon->seltag)
+#define ISVISIBLE(C) ((C)->tag == seltag)
 #define WIDTH(C)     ((C)->w + 2 * (C)->bw)
 #define HEIGHT(C)    ((C)->h + 2 * (C)->bw)
 
-typedef struct Monitor Monitor;
 typedef struct Client Client;
 
 typedef union {
@@ -34,7 +33,6 @@ typedef struct {
 	const char *class;
 	const char *instance;
 	int tag;     /* -1 = don't force */
-	int monitor; /* -1 = don't force */
 	int ismax;   /* 1 = open maximized */
 } Rule;
 
@@ -52,18 +50,5 @@ struct Client {
 	int ismax, isfull;
 	int hidden;                   /* WE unmapped it, for a tag switch */
 	int tag;
-	Monitor *mon;
-	Client *next, *prev; /* circular list, per monitor+tag */
-};
-
-struct Monitor {
-	int num;
-	int mx, my, mw, mh; /* full monitor geometry */
-	int wx, wy, ww, wh; /* window area, below the bar */
-	int seltag;
-	int showbar;
-	Client *taghead[TAGS];
-	Client *sel;
-	Window tagwin, statuswin;
-	Monitor *next;
+	Client *next, *prev;          /* circular list, one per tag */
 };
