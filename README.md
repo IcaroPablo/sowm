@@ -32,6 +32,10 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
 - Everything floats. No layouts, no master area, no gaps.
 - `MODKEY`+drag with button 1 moves a window, button 3 resizes it (from the
   root, so it works no matter where on the window you grab).
+- `MODKEY+Tab` returns to the tag you came from; pressing it again comes
+  straight back, so it flips between the last two tags. dwm gets this from
+  keeping two tag sets and flipping between them (`view` with argument 0);
+  with a single selected tag it is one saved integer.
 - `MODKEY+space` toggles maximize (fills the window area, bar and border
   stay visible); `MODKEY+f` toggles fullscreen (covers the whole screen, no
   border, raised above the bar). Fullscreen also responds to

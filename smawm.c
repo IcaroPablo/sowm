@@ -134,6 +134,7 @@ static char stext[256];
 
 static int wx, wy, ww, wh; /* window area: the screen minus the bar */
 static int seltag;
+static int prevtag; /* the tag we came from, for MODKEY+Tab */
 static Client *taghead[TAGS];
 static Client *sel;
 static Client *dragc;
@@ -527,6 +528,7 @@ viewtag(int tag)
 			s = s->next;
 		} while (s != c);
 	}
+	prevtag = seltag;
 	seltag = tag;
 	if ((c = taghead[tag])) {
 		s = c;
@@ -542,7 +544,12 @@ viewtag(int tag)
 void
 view(const Arg *arg)
 {
-	viewtag(arg->i);
+	/* a negative index means "the tag I came from". dwm gets this from
+	 * keeping two tag sets and flipping between them (view with arg 0);
+	 * with a single seltag the same thing is one saved int. Because
+	 * viewtag() then records the tag being left, pressing the key again
+	 * comes straight back - so it cycles between the same two tags. */
+	viewtag(arg->i < 0 ? prevtag : arg->i);
 }
 
 void

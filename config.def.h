@@ -41,6 +41,7 @@ static const char *termcmd[]  = { "st", NULL };
 
 static Key keys[] = {
 	/* modifier            key                       function     argument */
+	{ MODKEY,              XK_Tab,                    view,             {.i = -1} },
 	TAGKEYS(               XK_1,                      0)
 	TAGKEYS(               XK_2,                      1)
 	TAGKEYS(               XK_3,                      2)
