@@ -12,6 +12,12 @@
         (ShiftMask|ControlMask|Mod1Mask|Mod2Mask|Mod3Mask|Mod4Mask|Mod5Mask))
 
 #define ISVISIBLE(C) ((C)->tag == seltag)
+
+/* walk tag T's circular client list. sowm has the same idea in its `for win`
+ * macro; the cursor is declared inside the loop so callers need no scratch
+ * variable. Not safe if the body detaches or frees C - see cleanup(). */
+#define FOREACH(C, T) \
+	for (Client *_h = taghead[T], *C = _h; C; C = C->next == _h ? NULL : C->next)
 #define WIDTH(C)     ((C)->w + 2 * (C)->bw)
 #define HEIGHT(C)    ((C)->h + 2 * (C)->bw)
 

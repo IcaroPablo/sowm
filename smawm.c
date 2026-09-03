@@ -1,18 +1,20 @@
 /* smawm - a small floating window manager.
  *
- * Client/monitor/tag handling is dwm's model trimmed to a single active tag
- * per monitor (no bitmask, no tiling). Mouse move/resize, the event grabbing
- * trick (MODKEY+button grabbed on root, subwindow tells us what was
- * clicked), and the overall shape of the code come from sowm. The bar is
- * drawn with Xft (for real fonts like CozetteVector), but without dwm's
- * drw.c abstraction: it keeps drw.c's off-screen pixmap, since drawing
- * straight onto the bar windows flickers, and drops the rest. There are two
- * bar windows per monitor - a left one for tags, a right one for status
- * text.
+ * The client and tag model is dwm's, trimmed to one screen and one active
+ * tag (no monitors, no bitmask, no tiling). Mouse move/resize, the grab
+ * trick (MODKEY+button grabbed on the root, subwindow says what was
+ * clicked), tag switching by unmapping, and the shape of the code are
+ * sowm's. The bar is drawn with Xft rather than through dwm's drw.c: it
+ * keeps the one thing drw.c really buys - an off-screen pixmap, since
+ * painting straight onto the bar windows flickers - and drops the rest.
+ * Two bar windows: tags on the left, status text on the right.
  *
- * The ICCCM/EWMH plumbing (WM_STATE, synthetic ConfigureNotify, _NET_*
- * properties, UnmapNotify, size hints) is dwm's, unchanged: it is the part
- * sowm leaves out and the part real toolkit applications need.
+ * What is left of dwm's ICCCM/EWMH plumbing is the load-bearing set, and
+ * only that: WM_STATE, synthetic ConfigureNotify, the _NET_SUPPORTED /
+ * _NET_SUPPORTING_WM_CHECK advertisement, _NET_WM_STATE_FULLSCREEN, and
+ * UnmapNotify. It is the part sowm leaves out, and the part real toolkit
+ * applications need in order to behave. FEATURES.txt says what was cut and
+ * what each remaining piece costs.
  */
 
 #include <X11/Xatom.h>
@@ -41,7 +43,7 @@ enum { NetActiveWindow, NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetLast };
 
 static void drawbar(void);
-static void drawborder(Client *c, int sel);
+static void drawborder(Client *c, int focused);
 static void focus(Client *c);
 static void focusstack(const Arg *arg);
 static void grabinput(void);
@@ -93,7 +95,7 @@ static Client *sel;
 static Client *dragc;
 static int dragbutton, dragorigx, dragorigy, dragwx, dragwy, dragww, dragwh;
 
-/* ---- monitors / tags ---- */
+/* ---- screen geometry / tags ---- */
 
 int computevis(int *vis, int *widths) {
 	int nvis = 0, t;
@@ -120,8 +122,6 @@ void updatebarpos(void) {
 		wy = 0;
 		wh = sh;
 	}
-	XMoveResizeWindow(dpy, tagwin, bh, bh, 1, bh);
-	XMoveResizeWindow(dpy, statuswin, sw - 1 - bh - 2 * borderpx, bh, 1, bh);
 }
 
 /* smawm asks the server how big the screen is and nothing else. Xinerama
@@ -172,16 +172,10 @@ void detach(Client *c) {
 Client *wintoclient(Window w) {
 	int t;
 
-	for (t = 0; t < TAGS; t++) {
-		Client *c = taghead[t], *s = c;
-		if (!c)
-			continue;
-		do {
-			if (s->win == w)
-				return s;
-			s = s->next;
-		} while (s != c);
-	}
+	for (t = 0; t < TAGS; t++)
+		FOREACH(c, t)
+			if (c->win == w)
+				return c;
 	return NULL;
 }
 
@@ -280,7 +274,6 @@ void manage(Window w) {
 	c->y = wa.y;
 	c->w = wa.width;
 	c->h = wa.height;
-	c->oldbw = wa.border_width;
 	c->bw = borderpx;
 
 	/* dwm: a transient (dialog, file picker, ...) belongs wherever the
@@ -331,19 +324,18 @@ void unmanage(Window w) {
 
 	if (!c)
 		return;
-	wasfocused = (sel == c);
 	if (dragc == c) /* never keep dragging a client we are about to free */
 		dragc = NULL;
-	detach(c);
-	if (sel == c)
+	if ((wasfocused = (sel == c)))
 		sel = NULL;
+	detach(c);
 	free(c);
 	if (wasfocused)
 		focus(taghead[seltag]);
 	drawbar();
 }
 
-/* ---- tags / monitors: switching, moving windows ---- */
+/* ---- tags: switching, moving windows ---- */
 
 /* smawm hides the tags you are not looking at by unmapping their windows,
  * which is sowm's ws_go; dwm instead parks them off screen. The difference
@@ -360,28 +352,14 @@ void showhide(Client *c, int show) {
 }
 
 void viewtag(int tag) {
-	Client *c, *s;
-
-	if (tag < 0 || tag >= TAGS)
+	if (tag < 0 || tag >= TAGS || tag == seltag)
 		return;
-	if (tag == seltag)
-		return;
-	if ((c = taghead[seltag])) {
-		s = c;
-		do {
-			showhide(s, 0);
-			s = s->next;
-		} while (s != c);
-	}
+	FOREACH(c, seltag)
+		showhide(c, 0);
 	prevtag = seltag;
 	seltag = tag;
-	if ((c = taghead[tag])) {
-		s = c;
-		do {
-			showhide(s, 1);
-			s = s->next;
-		} while (s != c);
-	}
+	FOREACH(c, tag)
+		showhide(c, 1);
 	focus(taghead[tag]);
 	drawbar();
 }
@@ -423,8 +401,8 @@ void focusstack(const Arg *arg) {
 
 /* ---- focus / borders ---- */
 
-void drawborder(Client *c, int sel) {
-	XSetWindowBorder(dpy, c->win, sel ? border_sel : border_norm);
+void drawborder(Client *c, int focused) {
+	XSetWindowBorder(dpy, c->win, focused ? border_sel : border_norm);
 }
 
 void focus(Client *c) {
@@ -445,10 +423,9 @@ void focus(Client *c) {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
 		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
 	}
-	drawbar();
 }
 
-/* ---- maximize / fullscreen ---- */
+/* ---- fullscreen ---- */
 
 void setfullscreen(Client *c, int full) {
 	if (full && !c->isfull) {
@@ -498,12 +475,14 @@ int textw(const char *s) {
 	return ext.xOff + 16;
 }
 
-/* drawbar runs on every focus change, so on every crossing of the pointer
- * between windows. Painting the background and then the text straight onto
- * the bar window makes that visible as flicker, especially while a window is
- * being dragged over the bar; dwm's drw.c avoids it by drawing into an
- * off-screen pixmap and blitting the finished result, which is what these
- * two helpers do. */
+/* The bar shows which tags exist and which one is selected - nothing that
+ * depends on the focused window - so drawbar only runs when a tag gains or
+ * loses clients, when the selection changes, on Expose, and when the status
+ * string changes (once a second, from a status script). Painting the
+ * background and then the text straight onto the bar window makes that
+ * visible as flicker; dwm's drw.c avoids it by drawing into an off-screen
+ * pixmap and blitting the finished result, which is what these two helpers
+ * do. */
 static Pixmap barpixmap(int w) {
 	return XCreatePixmap(dpy, root, MAX(w, 1), bh, DefaultDepth(dpy, screen));
 }
@@ -511,6 +490,15 @@ static Pixmap barpixmap(int w) {
 static void barblit(Pixmap pm, Window win, int w) {
 	XCopyArea(dpy, pm, win, gc, 0, 0, MAX(w, 1), bh, 0, 0);
 	XFreePixmap(dpy, pm);
+}
+
+/* one cell of the bar: a filled box with a string in it. The tag cells and
+ * the status cell differ only in their colours. */
+static void barcell(Pixmap pm, XftDraw *xd, int x, int w, const char *s, int cur) {
+	XSetForeground(dpy, gc, cur ? bg_sel : bg_norm);
+	XFillRectangle(dpy, pm, gc, x, 0, w, bh);
+	XftDrawStringUtf8(xd, cur ? &xftfg_sel : &xftfg_norm, font, x + 8,
+			font->ascent + 2, (const FcChar8 *)s, (int)strlen(s));
 }
 
 void drawbar(void) {
@@ -537,12 +525,7 @@ void drawbar(void) {
 	xd = XftDrawCreate(dpy, pm, visual, cmap);
 	x = 0;
 	for (i = 0; i < nvis; i++) {
-		int cur = vis[i] == seltag;
-		XSetForeground(dpy, gc, cur ? bg_sel : bg_norm);
-		XFillRectangle(dpy, pm, gc, x, 0, widths[i], bh);
-		XftDrawStringUtf8(xd, cur ? &xftfg_sel : &xftfg_norm, font, x + 8,
-				font->ascent + 2, (const FcChar8 *)tags[vis[i]],
-				(int)strlen(tags[vis[i]]));
+		barcell(pm, xd, x, widths[i], tags[vis[i]], vis[i] == seltag);
 		x += widths[i];
 	}
 	XftDrawDestroy(xd);
@@ -551,11 +534,8 @@ void drawbar(void) {
 	tw = MAX(textw(stext), 1);
 	XMoveResizeWindow(dpy, statuswin, sw - tw - bh - 2 * borderpx, bh, tw, bh);
 	pm = barpixmap(tw);
-	XSetForeground(dpy, gc, bg_norm);
-	XFillRectangle(dpy, pm, gc, 0, 0, tw, bh);
 	xd = XftDrawCreate(dpy, pm, visual, cmap);
-	XftDrawStringUtf8(xd, &xftfg_norm, font, 8, font->ascent + 2,
-			(const FcChar8 *)stext, (int)strlen(stext));
+	barcell(pm, xd, 0, tw, stext, 0);
 	XftDrawDestroy(xd);
 	barblit(pm, statuswin, tw);
 }
@@ -591,9 +571,6 @@ void buttonpress(XEvent *e) {
 		}
 		return;
 	}
-	if (ev->window == statuswin)
-		return;
-
 	if (!ev->subwindow)
 		return;
 	c = wintoclient(ev->subwindow);
@@ -628,7 +605,7 @@ void motionnotify(XEvent *e) {
 	if (dragbutton == 1)
 		resize(dragc, dragwx + xd, dragwy + yd, dragww, dragwh, 1);
 	else if (dragbutton == 3)
-		resize(dragc, dragwx, dragwy, MAX(20, dragww + xd), MAX(20, dragwh + yd), 1);
+		resize(dragc, dragwx, dragwy, dragww + xd, dragwh + yd, 1);
 }
 
 /* ---- misc event handlers ---- */
@@ -642,7 +619,6 @@ void motionnotify(XEvent *e) {
 void configurerequest(XEvent *e) {
 	XConfigureRequestEvent *ev = &e->xconfigurerequest;
 	Client *c;
-	XWindowChanges wc;
 
 	if ((c = wintoclient(ev->window))) {
 		/* CWBorderWidth is deliberately never passed on: dwm lets a client
@@ -674,6 +650,8 @@ void configurerequest(XEvent *e) {
 	} else {
 		/* not ours (an override-redirect window, or one not managed yet):
 		 * grant it as asked, same as sowm and dwm both do */
+		XWindowChanges wc;
+
 		wc.x = ev->x;
 		wc.y = ev->y;
 		wc.width = ev->width;
@@ -799,8 +777,8 @@ void keypress(XEvent *e) {
 void spawn(const Arg *arg) {
 	struct sigaction sa;
 
-	if (fork())
-		return;
+	if (fork() != 0)
+		return; /* the parent, or fork failed */
 	if (dpy)
 		close(ConnectionNumber(dpy));
 	setsid();
@@ -911,14 +889,14 @@ void updatesizehints(Client *c) {
  * look like it had started fine. */
 int xerror(Display *d, XErrorEvent *ee) {
 	if (ee->error_code == BadWindow
-	|| (ee->request_code == X_SetInputFocus && ee->error_code == BadMatch)
-	|| (ee->request_code == X_PolyText8 && ee->error_code == BadDrawable)
-	|| (ee->request_code == X_PolyFillRectangle && ee->error_code == BadDrawable)
-	|| (ee->request_code == X_PolySegment && ee->error_code == BadDrawable)
-	|| (ee->request_code == X_ConfigureWindow && ee->error_code == BadMatch)
-	|| (ee->request_code == X_GrabButton && ee->error_code == BadAccess)
-	|| (ee->request_code == X_GrabKey && ee->error_code == BadAccess)
-	|| (ee->request_code == X_CopyArea && ee->error_code == BadDrawable))
+	    || (ee->request_code == X_SetInputFocus && ee->error_code == BadMatch)
+	    || (ee->request_code == X_PolyText8 && ee->error_code == BadDrawable)
+	    || (ee->request_code == X_PolyFillRectangle && ee->error_code == BadDrawable)
+	    || (ee->request_code == X_PolySegment && ee->error_code == BadDrawable)
+	    || (ee->request_code == X_ConfigureWindow && ee->error_code == BadMatch)
+	    || (ee->request_code == X_GrabButton && ee->error_code == BadAccess)
+	    || (ee->request_code == X_GrabKey && ee->error_code == BadAccess)
+	    || (ee->request_code == X_CopyArea && ee->error_code == BadDrawable))
 		return 0;
 	fprintf(stderr, "smawm: fatal error: request code=%d, error code=%d\n",
 			ee->request_code, ee->error_code);
@@ -942,8 +920,9 @@ void checkotherwm(void) {
 	XSync(dpy, False);
 }
 
-/* hand every window back mapped, unmanaged and with its own border, so
- * quitting smawm doesn't strand the windows sitting on inactive tags */
+/* hand every window back mapped and unmanaged, so quitting smawm doesn't
+ * strand the windows sitting on inactive tags. The list is mutated as we go,
+ * so this cannot use FOREACH. */
 void cleanup(void) {
 	Client *c;
 	int t;
@@ -998,8 +977,14 @@ void grabinput(void) {
 					GrabModeAsync, GrabModeAsync, None, None);
 }
 
-void setup(void) {
+static unsigned long getcolor(const char *name) {
 	XColor c;
+
+	return XAllocNamedColor(dpy, cmap, name, &c, &c) ? c.pixel
+	                                                 : BlackPixel(dpy, screen);
+}
+
+void setup(void) {
 	Atom utf8string;
 	struct sigaction sa;
 	XSetWindowAttributes wa;
@@ -1026,13 +1011,10 @@ void setup(void) {
 	bh = font->ascent + font->descent + 4;
 	gc = XCreateGC(dpy, root, 0, NULL);
 
-#define ALLOC(name, var) \
-	var = XAllocNamedColor(dpy, cmap, name, &c, &c) ? c.pixel : BlackPixel(dpy, screen)
-	ALLOC(col_bg_norm, bg_norm);
-	ALLOC(col_bg_sel, bg_sel);
-	ALLOC(col_border_norm, border_norm);
-	ALLOC(col_border_sel, border_sel);
-#undef ALLOC
+	bg_norm = getcolor(col_bg_norm);
+	bg_sel = getcolor(col_bg_sel);
+	border_norm = getcolor(col_border_norm);
+	border_sel = getcolor(col_border_sel);
 	XftColorAllocName(dpy, visual, cmap, col_fg_norm, &xftfg_norm);
 	XftColorAllocName(dpy, visual, cmap, col_fg_sel, &xftfg_sel);
 
@@ -1047,8 +1029,8 @@ void setup(void) {
 	netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
 	netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
 
-	/* the two bar windows. There is one screen, so they are made once here
-	 * rather than per monitor, and updategeom() places them. */
+	/* the two bar windows, made once - there is only ever one screen.
+	 * drawbar() sizes and places them; they start 1px wide. */
 	wa.override_redirect = True;
 	wa.background_pixel = bg_norm;
 	wa.border_pixel = border_sel;
