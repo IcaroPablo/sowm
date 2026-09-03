@@ -40,26 +40,13 @@ enum { NetActiveWindow, NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMStateFullscreen, NetWMWindowType, NetWMWindowTypeDialog,
        NetLast };
 
-static void buttonpress(XEvent *e);
-static void buttonrelease(XEvent *e);
-static void clientmessage(XEvent *e);
-static void configurenotify(XEvent *e);
-static void configurerequest(XEvent *e);
-static void destroynotify(XEvent *e);
 static void drawbar(void);
 static void drawborder(Client *c, int sel);
-static void enternotify(XEvent *e);
-static void expose(XEvent *e);
 static void focus(Client *c);
 static void focusstack(const Arg *arg);
 static void grabinput(void);
-static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
-static void mappingnotify(XEvent *e);
-static void maprequest(XEvent *e);
-static void motionnotify(XEvent *e);
 static void movetotag(const Arg *arg);
-static void propertynotify(XEvent *e);
 static void resizeclient(Client *c, int x, int y, int w, int h);
 static void setclientstate(Client *c, long state);
 static void showhide(Client *c, int show);
@@ -68,7 +55,6 @@ static int textw(const char *s);
 static void togglebar(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void quit(const Arg *arg);
-static void unmapnotify(XEvent *e);
 static void updatesizehints(Client *c);
 static void updatewindowtype(Client *c);
 static void view(const Arg *arg);
@@ -106,23 +92,6 @@ static Client *taghead[TAGS];
 static Client *sel;
 static Client *dragc;
 static int dragbutton, dragorigx, dragorigy, dragwx, dragwy, dragww, dragwh;
-
-static void (*handler[LASTEvent])(XEvent *e) = {
-	[ButtonPress]      = buttonpress,
-	[ButtonRelease]    = buttonrelease,
-	[ClientMessage]    = clientmessage,
-	[ConfigureNotify]  = configurenotify,
-	[ConfigureRequest] = configurerequest,
-	[DestroyNotify]    = destroynotify,
-	[EnterNotify]      = enternotify,
-	[Expose]           = expose,
-	[KeyPress]         = keypress,
-	[MapRequest]       = maprequest,
-	[MappingNotify]    = mappingnotify,
-	[MotionNotify]     = motionnotify,
-	[PropertyNotify]   = propertynotify,
-	[UnmapNotify]      = unmapnotify,
-};
 
 /* ---- monitors / tags ---- */
 
@@ -1117,6 +1086,23 @@ void setup(void) {
 	grabinput();
 	updatestatus();
 }
+
+static void (*handler[LASTEvent])(XEvent *e) = {
+	[ButtonPress]      = buttonpress,
+	[ButtonRelease]    = buttonrelease,
+	[ClientMessage]    = clientmessage,
+	[ConfigureNotify]  = configurenotify,
+	[ConfigureRequest] = configurerequest,
+	[DestroyNotify]    = destroynotify,
+	[EnterNotify]      = enternotify,
+	[Expose]           = expose,
+	[KeyPress]         = keypress,
+	[MapRequest]       = maprequest,
+	[MappingNotify]    = mappingnotify,
+	[MotionNotify]     = motionnotify,
+	[PropertyNotify]   = propertynotify,
+	[UnmapNotify]      = unmapnotify,
+};
 
 void run(void) {
 	XEvent ev;
