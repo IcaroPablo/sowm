@@ -55,6 +55,7 @@ static void showhide(Client *c, int show);
 static void spawn(const Arg *arg);
 static int textw(const char *s);
 static void togglebar(const Arg *arg);
+static void togglemax(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void quit(const Arg *arg);
 static void updatesizehints(Client *c);
@@ -425,16 +426,48 @@ void focus(Client *c) {
 	}
 }
 
-/* ---- fullscreen ---- */
+/* ---- maximize / fullscreen ---- */
+
+/* fill the window area, a bar height of gap on every side - the same gap
+ * updatebarpos leaves around the bar itself */
+void resizemax(Client *c) {
+	resize(c, wx + bh, wy + bh,
+			ww - 2 * c->bw - 2 * bh,
+			wh - 2 * c->bw - 2 * bh, 0);
+}
+
+void togglemax(const Arg *arg) {
+	Client *c = sel;
+
+	(void)arg;
+	if (!c || c->isfull)
+		return;
+	if (c->ismax) {
+		c->ismax = 0;
+		resize(c, c->oldx, c->oldy, c->oldw, c->oldh, 0);
+	} else {
+		c->oldx = c->x;
+		c->oldy = c->y;
+		c->oldw = c->w;
+		c->oldh = c->h;
+		c->ismax = 1;
+		resizemax(c);
+	}
+}
 
 void setfullscreen(Client *c, int full) {
 	if (full && !c->isfull) {
 		XChangeProperty(dpy, c->win, netatom[NetWMState], XA_ATOM, 32,
 				PropModeReplace, (unsigned char *)&netatom[NetWMStateFullscreen], 1);
-		c->oldx = c->x;
-		c->oldy = c->y;
-		c->oldw = c->w;
-		c->oldh = c->h;
+		/* a maximized window is already keeping its natural size in old*;
+		 * overwriting it here would make un-fullscreening restore to the
+		 * maximized geometry and lose the real one for good */
+		if (!c->ismax) {
+			c->oldx = c->x;
+			c->oldy = c->y;
+			c->oldw = c->w;
+			c->oldh = c->h;
+		}
 		c->isfull = 1;
 		c->oldbw = c->bw;
 		c->bw = 0;
@@ -447,7 +480,10 @@ void setfullscreen(Client *c, int full) {
 				PropModeReplace, (unsigned char *)0, 0);
 		c->isfull = 0;
 		c->bw = c->oldbw;
-		resizeclient(c, c->oldx, c->oldy, c->oldw, c->oldh);
+		if (c->ismax)
+			resizemax(c);
+		else
+			resizeclient(c, c->oldx, c->oldy, c->oldw, c->oldh);
 	}
 }
 
@@ -462,9 +498,16 @@ void togglefullscreen(const Arg *arg) {
 /* ---- bar ---- */
 
 void togglebar(const Arg *arg) {
+	int t;
+
 	(void)arg;
 	showbar = !showbar;
 	updatebarpos();
+	/* maximized clients fill wx/wy/ww/wh, which updatebarpos just moved */
+	for (t = 0; t < TAGS; t++)
+		FOREACH(c, t)
+			if (c->ismax)
+				resizemax(c);
 	drawbar();
 }
 
@@ -579,6 +622,7 @@ void buttonpress(XEvent *e) {
 	focus(c);
 	if (c->isfull)
 		return; /* dwm's movemouse refuses fullscreen windows too */
+	c->ismax = 0; /* dragging it is how you stop it being maximized */
 	dragc = c;
 	dragbutton = ev->button;
 	dragorigx = ev->x_root;
@@ -625,9 +669,15 @@ void configurerequest(XEvent *e) {
 		 * set its own border width, but smawm has a single borderpx for
 		 * everything, and toolkits routinely ask for 0 - which is how the
 		 * focus border silently disappeared off windows */
-		if (c->isfull) {
-			/* it asked to be fullscreen; it does not also get to pick
-			 * where fullscreen is */
+		if (c->isfull || c == dragc) {
+			/* A fullscreen window asked for that state; it does not also
+			 * get to pick where fullscreen is. The same applies while the
+			 * pointer is dragging a window: some clients re-assert their
+			 * own position on every ConfigureNotify, so honouring the
+			 * request mid-drag means the window snaps back once per motion
+			 * event and cannot be moved at all. dwm has the fullscreen half
+			 * of this and fights the client in the drag case; smawm lets
+			 * the drag win for as long as the button is held. */
 			configure(c);
 		} else {
 			if (ev->value_mask & CWX)

@@ -57,6 +57,7 @@ static Key keys[] = {
 
 	{ MODKEY,              XK_j,                      focusstack,       {.i = +1} },
 	{ MODKEY,              XK_k,                      focusstack,       {.i = -1} },
+	{ MODKEY,              XK_space,                  togglemax,        {0} },
 	{ MODKEY,              XK_f,                      togglefullscreen, {0} },
 
 
