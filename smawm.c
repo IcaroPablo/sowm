@@ -40,60 +40,38 @@ enum { NetActiveWindow, NetSupported, NetWMName, NetWMState, NetWMCheck,
        NetWMStateFullscreen, NetWMWindowType, NetWMWindowTypeDialog,
        NetLast };
 
-static int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact);
-static void attach(Client *c);
 static void buttonpress(XEvent *e);
 static void buttonrelease(XEvent *e);
-static void checkotherwm(void);
-static void cleanup(void);
 static void clientmessage(XEvent *e);
-static void configure(Client *c);
 static void configurenotify(XEvent *e);
 static void configurerequest(XEvent *e);
-static int computevis(int *vis, int *widths);
 static void destroynotify(XEvent *e);
-static void detach(Client *c);
 static void drawbar(void);
 static void drawborder(Client *c, int sel);
 static void enternotify(XEvent *e);
 static void expose(XEvent *e);
 static void focus(Client *c);
 static void focusstack(const Arg *arg);
-static Atom getatomprop(Client *c, Atom prop);
 static void grabinput(void);
 static void keypress(XEvent *e);
 static void killclient(const Arg *arg);
-static void manage(Window w);
 static void mappingnotify(XEvent *e);
 static void maprequest(XEvent *e);
 static void motionnotify(XEvent *e);
 static void movetotag(const Arg *arg);
 static void propertynotify(XEvent *e);
-static void resize(Client *c, int x, int y, int w, int h, int interact);
 static void resizeclient(Client *c, int x, int y, int w, int h);
-static void run(void);
 static void setclientstate(Client *c, long state);
-static void setfullscreen(Client *c, int full);
-static void setup(void);
 static void showhide(Client *c, int show);
 static void spawn(const Arg *arg);
 static int textw(const char *s);
 static void togglebar(const Arg *arg);
 static void togglefullscreen(const Arg *arg);
 static void quit(const Arg *arg);
-static void unmanage(Window w);
 static void unmapnotify(XEvent *e);
-static void updatebarpos(void);
-static void updatenumlockmask(void);
-static int updategeom(void);
 static void updatesizehints(Client *c);
-static void updatestatus(void);
 static void updatewindowtype(Client *c);
 static void view(const Arg *arg);
-static void viewtag(int tag);
-static Client *wintoclient(Window w);
-static int xerror(Display *dpy, XErrorEvent *ee);
-static int xerrorstart(Display *dpy, XErrorEvent *ee);
 
 #include "config.h"
 
@@ -148,9 +126,7 @@ static void (*handler[LASTEvent])(XEvent *e) = {
 
 /* ---- monitors / tags ---- */
 
-int
-computevis(int *vis, int *widths)
-{
+int computevis(int *vis, int *widths) {
 	int nvis = 0, t;
 
 	for (t = 0; t < TAGS; t++)
@@ -162,9 +138,7 @@ computevis(int *vis, int *widths)
 	return nvis;
 }
 
-void
-updatebarpos(void)
-{
+void updatebarpos(void) {
 	/* every gap (external, around the bars; internal, bar-to-window and
 	 * window-to-edge) is one bar height wide, so they read as a uniform
 	 * grid; adjoining gaps (e.g. below the bar) simply add up. */
@@ -184,9 +158,7 @@ updatebarpos(void)
 /* smawm asks the server how big the screen is and nothing else. Xinerama
  * would report the monitors inside it; not asking is what makes a dual-head
  * setup behave as one wide screen, and is why there is no Monitor type. */
-int
-updategeom(void)
-{
+int updategeom(void) {
 	int w = DisplayWidth(dpy, screen), h = DisplayHeight(dpy, screen);
 
 	if (w == sw && h == sh)
@@ -199,9 +171,7 @@ updategeom(void)
 
 /* ---- client list management ---- */
 
-void
-attach(Client *c)
-{
+void attach(Client *c) {
 	Client **head = &taghead[c->tag];
 
 	if (*head) {
@@ -216,9 +186,7 @@ attach(Client *c)
 	}
 }
 
-void
-detach(Client *c)
-{
+void detach(Client *c) {
 	Client **head = &taghead[c->tag];
 
 	if (c->next == c) {
@@ -232,9 +200,7 @@ detach(Client *c)
 	c->next = c->prev = NULL;
 }
 
-Client *
-wintoclient(Window w)
-{
+Client *wintoclient(Window w) {
 	int t;
 
 	for (t = 0; t < TAGS; t++) {
@@ -255,9 +221,7 @@ wintoclient(Window w)
  * as asked; dwm calls it configure(). Without it clients never learn their
  * absolute position (menus and popups then open in the wrong place) and keep
  * re-asking for the geometry they wanted. */
-void
-configure(Client *c)
-{
+void configure(Client *c) {
 	XConfigureEvent ce;
 
 	ce.type = ConfigureNotify;
@@ -277,9 +241,7 @@ configure(Client *c)
 /* dwm's applysizehints, minus the tiling branch (everything floats here, so
  * WM_NORMAL_HINTS always apply) and minus the base/increment/aspect
  * arithmetic - see updatesizehints() for why those were dropped. */
-int
-applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
-{
+int applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact) {
 	*w = MAX(1, *w);
 	*h = MAX(1, *h);
 	if (interact) {
@@ -314,16 +276,12 @@ applysizehints(Client *c, int *x, int *y, int *w, int *h, int interact)
 	return *x != c->x || *y != c->y || *w != c->w || *h != c->h;
 }
 
-void
-resize(Client *c, int x, int y, int w, int h, int interact)
-{
+void resize(Client *c, int x, int y, int w, int h, int interact) {
 	if (applysizehints(c, &x, &y, &w, &h, interact))
 		resizeclient(c, x, y, w, h);
 }
 
-void
-resizeclient(Client *c, int x, int y, int w, int h)
-{
+void resizeclient(Client *c, int x, int y, int w, int h) {
 	XWindowChanges wc;
 
 	c->x = wc.x = x;
@@ -336,9 +294,7 @@ resizeclient(Client *c, int x, int y, int w, int h)
 	XSync(dpy, False);
 }
 
-void
-manage(Window w)
-{
+void manage(Window w) {
 	XWindowAttributes wa;
 	Client *c, *t = NULL;
 	Window trans = None;
@@ -400,9 +356,7 @@ manage(Window w)
 	drawbar();
 }
 
-void
-unmanage(Window w)
-{
+void unmanage(Window w) {
 	Client *c = wintoclient(w);
 	int wasfocused;
 
@@ -426,9 +380,7 @@ unmanage(Window w)
  * which is sowm's ws_go; dwm instead parks them off screen. The difference
  * matters because an UnmapNotify then means two different things, so record
  * in c->hidden that this particular unmap was ours - see unmapnotify(). */
-void
-showhide(Client *c, int show)
-{
+void showhide(Client *c, int show) {
 	if (!c)
 		return;
 	c->hidden = !show;
@@ -438,9 +390,7 @@ showhide(Client *c, int show)
 		XUnmapWindow(dpy, c->win);
 }
 
-void
-viewtag(int tag)
-{
+void viewtag(int tag) {
 	Client *c, *s;
 
 	if (tag < 0 || tag >= TAGS)
@@ -467,9 +417,7 @@ viewtag(int tag)
 	drawbar();
 }
 
-void
-view(const Arg *arg)
-{
+void view(const Arg *arg) {
 	/* a negative index means "the tag I came from". dwm gets this from
 	 * keeping two tag sets and flipping between them (view with arg 0);
 	 * with a single seltag the same thing is one saved int. Because
@@ -478,9 +426,7 @@ view(const Arg *arg)
 	viewtag(arg->i < 0 ? prevtag : arg->i);
 }
 
-void
-movetotag(const Arg *arg)
-{
+void movetotag(const Arg *arg) {
 	Client *c = sel;
 	int vis;
 
@@ -496,9 +442,7 @@ movetotag(const Arg *arg)
 	drawbar();
 }
 
-void
-focusstack(const Arg *arg)
-{
+void focusstack(const Arg *arg) {
 	Client *c = sel, *n;
 
 	if (!c)
@@ -510,15 +454,11 @@ focusstack(const Arg *arg)
 
 /* ---- focus / borders ---- */
 
-void
-drawborder(Client *c, int sel)
-{
+void drawborder(Client *c, int sel) {
 	XSetWindowBorder(dpy, c->win, sel ? border_sel : border_norm);
 }
 
-void
-focus(Client *c)
-{
+void focus(Client *c) {
 	/* focusing an unmapped window is a BadMatch that leaves the keyboard
 	 * pointing at nothing - dwm guards the same way */
 	if (c && !ISVISIBLE(c))
@@ -541,9 +481,7 @@ focus(Client *c)
 
 /* ---- maximize / fullscreen ---- */
 
-void
-setfullscreen(Client *c, int full)
-{
+void setfullscreen(Client *c, int full) {
 	if (full && !c->isfull) {
 		XChangeProperty(dpy, c->win, netatom[NetWMState], XA_ATOM, 32,
 				PropModeReplace, (unsigned char *)&netatom[NetWMStateFullscreen], 1);
@@ -567,9 +505,7 @@ setfullscreen(Client *c, int full)
 	}
 }
 
-void
-togglefullscreen(const Arg *arg)
-{
+void togglefullscreen(const Arg *arg) {
 	Client *c = sel;
 
 	(void)arg;
@@ -579,18 +515,14 @@ togglefullscreen(const Arg *arg)
 
 /* ---- bar ---- */
 
-void
-togglebar(const Arg *arg)
-{
+void togglebar(const Arg *arg) {
 	(void)arg;
 	showbar = !showbar;
 	updatebarpos();
 	drawbar();
 }
 
-int
-textw(const char *s)
-{
+int textw(const char *s) {
 	XGlyphInfo ext;
 
 	XftTextExtentsUtf8(dpy, font, (const FcChar8 *)s, (int)strlen(s), &ext);
@@ -603,22 +535,16 @@ textw(const char *s)
  * being dragged over the bar; dwm's drw.c avoids it by drawing into an
  * off-screen pixmap and blitting the finished result, which is what these
  * two helpers do. */
-static Pixmap
-barpixmap(int w)
-{
+static Pixmap barpixmap(int w) {
 	return XCreatePixmap(dpy, root, MAX(w, 1), bh, DefaultDepth(dpy, screen));
 }
 
-static void
-barblit(Pixmap pm, Window win, int w)
-{
+static void barblit(Pixmap pm, Window win, int w) {
 	XCopyArea(dpy, pm, win, gc, 0, 0, MAX(w, 1), bh, 0, 0);
 	XFreePixmap(dpy, pm);
 }
 
-void
-drawbar(void)
-{
+void drawbar(void) {
 	int vis[TAGS], widths[TAGS], nvis, i, x, tw;
 	Pixmap pm;
 	XftDraw *xd;
@@ -665,9 +591,7 @@ drawbar(void)
 	barblit(pm, statuswin, tw);
 }
 
-void
-updatestatus(void)
-{
+void updatestatus(void) {
 	XTextProperty tp;
 
 	if (XGetWMName(dpy, root, &tp) && tp.value && tp.nitems) {
@@ -682,9 +606,7 @@ updatestatus(void)
 
 /* ---- mouse move/resize (from sowm) ---- */
 
-void
-buttonpress(XEvent *e)
-{
+void buttonpress(XEvent *e) {
 	XButtonEvent *ev = &e->xbutton;
 	Client *c;
 
@@ -721,16 +643,12 @@ buttonpress(XEvent *e)
 	dragwh = c->h;
 }
 
-void
-buttonrelease(XEvent *e)
-{
+void buttonrelease(XEvent *e) {
 	(void)e;
 	dragc = NULL;
 }
 
-void
-motionnotify(XEvent *e)
-{
+void motionnotify(XEvent *e) {
 	int xd, yd;
 
 	if (!dragc || dragc->isfull)
@@ -752,9 +670,7 @@ motionnotify(XEvent *e)
  * let a client wipe its own border (CWBorderWidth), restack itself over the
  * bar (CWSibling/CWStackMode), and undo whatever the WM had just done -
  * which is what made a self-positioning window impossible to drag. */
-void
-configurerequest(XEvent *e)
-{
+void configurerequest(XEvent *e) {
 	XConfigureRequestEvent *ev = &e->xconfigurerequest;
 	Client *c;
 	XWindowChanges wc;
@@ -801,24 +717,18 @@ configurerequest(XEvent *e)
 	XSync(dpy, False);
 }
 
-void
-configurenotify(XEvent *e)
-{
+void configurenotify(XEvent *e) {
 	if (e->xconfigure.window == root && updategeom())
 		drawbar();
 }
 
-void
-maprequest(XEvent *e)
-{
+void maprequest(XEvent *e) {
 	Window w = e->xmaprequest.window;
 	if (!wintoclient(w))
 		manage(w);
 }
 
-void
-destroynotify(XEvent *e)
-{
+void destroynotify(XEvent *e) {
 	unmanage(e->xdestroywindow.window);
 }
 
@@ -830,9 +740,7 @@ destroynotify(XEvent *e)
  * window back onto the screen, focus could land on a window that was not
  * there, and the app's own request to show it again was swallowed by
  * maprequest, because smawm still thought it was managing it. */
-void
-unmapnotify(XEvent *e)
-{
+void unmapnotify(XEvent *e) {
 	XUnmapEvent *ev = &e->xunmap;
 	Client *c;
 
@@ -846,9 +754,7 @@ unmapnotify(XEvent *e)
 	unmanage(ev->window);
 }
 
-void
-enternotify(XEvent *e)
-{
+void enternotify(XEvent *e) {
 	Client *c;
 	XCrossingEvent *ev = &e->xcrossing;
 
@@ -869,9 +775,7 @@ enternotify(XEvent *e)
 	focus(c);
 }
 
-void
-expose(XEvent *e)
-{
+void expose(XEvent *e) {
 	if (e->xexpose.count == 0 &&
 	    (e->xexpose.window == tagwin || e->xexpose.window == statuswin))
 		drawbar();
@@ -882,18 +786,14 @@ expose(XEvent *e)
  * tracks per-client hint and window-type changes here; those went with the
  * rest of the ICCCM refinements - size hints are now read once when the
  * window is managed, and fullscreen still arrives as a ClientMessage. */
-void
-propertynotify(XEvent *e)
-{
+void propertynotify(XEvent *e) {
 	XPropertyEvent *ev = &e->xproperty;
 
 	if (ev->window == root && ev->atom == XA_WM_NAME)
 		updatestatus();
 }
 
-void
-clientmessage(XEvent *e)
-{
+void clientmessage(XEvent *e) {
 	XClientMessageEvent *cme = &e->xclient;
 	Client *c = wintoclient(cme->window);
 
@@ -906,9 +806,7 @@ clientmessage(XEvent *e)
 	}
 }
 
-void
-mappingnotify(XEvent *e)
-{
+void mappingnotify(XEvent *e) {
 	XMappingEvent *ev = &e->xmapping;
 
 	XRefreshKeyboardMapping(ev);
@@ -916,9 +814,7 @@ mappingnotify(XEvent *e)
 		grabinput();
 }
 
-void
-keypress(XEvent *e)
-{
+void keypress(XEvent *e) {
 	XKeyEvent *ev = &e->xkey;
 	KeySym keysym = XkbKeycodeToKeysym(dpy, ev->keycode, 0, 0);
 	unsigned int i;
@@ -931,9 +827,7 @@ keypress(XEvent *e)
 
 /* ---- spawning / killing / quitting ---- */
 
-void
-spawn(const Arg *arg)
-{
+void spawn(const Arg *arg) {
 	struct sigaction sa;
 
 	if (fork())
@@ -953,9 +847,7 @@ spawn(const Arg *arg)
 	_exit(1);
 }
 
-void
-killclient(const Arg *arg)
-{
+void killclient(const Arg *arg) {
 	Client *c = sel;
 
 	(void)arg;
@@ -967,9 +859,7 @@ killclient(const Arg *arg)
 	XKillClient(dpy, c->win);
 }
 
-void
-quit(const Arg *arg)
-{
+void quit(const Arg *arg) {
 	(void)arg;
 	running = 0;
 }
@@ -978,18 +868,14 @@ quit(const Arg *arg)
 
 /* WM_STATE. ICCCM requires the WM to keep this on every window it manages;
  * toolkits read it to tell "mapped" from "iconified" from "not managed". */
-void
-setclientstate(Client *c, long state)
-{
+void setclientstate(Client *c, long state) {
 	long data[] = { state, None };
 
 	XChangeProperty(dpy, c->win, wmatom[WMState], wmatom[WMState], 32,
 			PropModeReplace, (unsigned char *)data, 2);
 }
 
-Atom
-getatomprop(Client *c, Atom prop)
-{
+Atom getatomprop(Client *c, Atom prop) {
 	int di;
 	unsigned long dl;
 	unsigned char *p = NULL;
@@ -1009,9 +895,7 @@ getatomprop(Client *c, Atom prop)
  * form, so such a window was managed as an ordinary one: the app painted
  * itself as fullscreen inside a window that was not, and dragging it started
  * a tug of war with the app over its geometry. */
-void
-updatewindowtype(Client *c)
-{
+void updatewindowtype(Client *c) {
 	if (getatomprop(c, netatom[NetWMState]) == netatom[NetWMStateFullscreen])
 		setfullscreen(c, 1);
 	/* dwm also floats _NET_WM_WINDOW_TYPE_DIALOG here; everything floats in
@@ -1028,9 +912,7 @@ updatewindowtype(Client *c)
  * nothing sets an aspect ratio or a base distinct from its minimum. See
  * FEATURES.txt. ICCCM lets min and base stand in for each other, so a
  * client that publishes only a base still yields a minimum here. */
-void
-updatesizehints(Client *c)
-{
+void updatesizehints(Client *c) {
 	long msize;
 	XSizeHints size;
 
@@ -1058,9 +940,7 @@ updatesizehints(Client *c)
 /* dwm's error handlers. The old one returned 0 for everything, which hid
  * every real X error and made a second window manager on the same display
  * look like it had started fine. */
-int
-xerror(Display *d, XErrorEvent *ee)
-{
+int xerror(Display *d, XErrorEvent *ee) {
 	if (ee->error_code == BadWindow
 	|| (ee->request_code == X_SetInputFocus && ee->error_code == BadMatch)
 	|| (ee->request_code == X_PolyText8 && ee->error_code == BadDrawable)
@@ -1076,9 +956,7 @@ xerror(Display *d, XErrorEvent *ee)
 	return xerrorxlib(d, ee); /* may call exit */
 }
 
-int
-xerrorstart(Display *d, XErrorEvent *ee)
-{
+int xerrorstart(Display *d, XErrorEvent *ee) {
 	(void)d;
 	(void)ee;
 	fprintf(stderr, "smawm: another window manager is already running\n");
@@ -1086,9 +964,7 @@ xerrorstart(Display *d, XErrorEvent *ee)
 	return -1;
 }
 
-void
-checkotherwm(void)
-{
+void checkotherwm(void) {
 	xerrorxlib = XSetErrorHandler(xerrorstart);
 	/* this causes an error if some other window manager is running */
 	XSelectInput(dpy, DefaultRootWindow(dpy), SubstructureRedirectMask);
@@ -1099,9 +975,7 @@ checkotherwm(void)
 
 /* hand every window back mapped, unmanaged and with its own border, so
  * quitting smawm doesn't strand the windows sitting on inactive tags */
-void
-cleanup(void)
-{
+void cleanup(void) {
 	Client *c;
 	int t;
 
@@ -1117,9 +991,7 @@ cleanup(void)
 	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
 }
 
-void
-updatenumlockmask(void)
-{
+void updatenumlockmask(void) {
 	XModifierKeymap *modmap = XGetModifierMapping(dpy);
 	int i, j;
 
@@ -1132,9 +1004,7 @@ updatenumlockmask(void)
 	XFreeModifiermap(modmap);
 }
 
-void
-grabinput(void)
-{
+void grabinput(void) {
 	unsigned int i, j, modifiers[4];
 	KeyCode code;
 
@@ -1159,9 +1029,7 @@ grabinput(void)
 					GrabModeAsync, GrabModeAsync, None, None);
 }
 
-void
-setup(void)
-{
+void setup(void) {
 	XColor c;
 	Atom utf8string;
 	struct sigaction sa;
@@ -1250,9 +1118,7 @@ setup(void)
 	updatestatus();
 }
 
-void
-run(void)
-{
+void run(void) {
 	XEvent ev;
 
 	running = 1;
@@ -1261,9 +1127,7 @@ run(void)
 			handler[ev.type](&ev);
 }
 
-int
-main(void)
-{
+int main(void) {
 	if (!(dpy = XOpenDisplay(NULL))) {
 		fprintf(stderr, "smawm: cannot open display\n");
 		return 1;
