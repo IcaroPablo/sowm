@@ -4,6 +4,7 @@ smawm is assembled from sowm and dwm and carries the copyright notices of
 both. sowm's own list was copied from dwm as it stood around 2011; the
 entries below bring it up to the dwm this code was actually taken from.
 
+- © 2026-     Ícaro Andrade <ic4ro.p4blo@gmail.com>
 - © 2019-     Dylan Araps <dylan.araps@gmail.com>
 - © 2006-2019 Anselm R Garbe <anselm@garbe.ca>
 - © 2006-2009 Jukka Salmi <jukka at salmi dot ch>
