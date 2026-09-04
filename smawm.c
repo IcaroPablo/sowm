@@ -93,6 +93,7 @@ static int wx, wy, ww, wh; /* window area: the screen minus the bar */
 static int seltag;
 static int prevtag; /* the tag we came from, for MODKEY+Tab */
 static Client *taghead[TAGS];
+static Client *stack; /* all clients, most recently focused first */
 static Client *sel;
 static Client *dragc;
 static int dragbutton, dragorigx, dragorigy, dragwx, dragwy, dragww, dragwh;
@@ -155,6 +156,21 @@ void attach(Client *c) {
 		*head = c;
 		c->prev = c->next = c;
 	}
+}
+
+/* dwm's attachstack/detachstack. The tag lists give an order to cycle
+ * through; this one remembers what you were last looking at, which is a
+ * different question and needs its own list. */
+void attachstack(Client *c) {
+	c->snext = stack;
+	stack = c;
+}
+
+void detachstack(Client *c) {
+	Client **tc;
+
+	for (tc = &stack; *tc && *tc != c; tc = &(*tc)->snext);
+	*tc = c->snext;
 }
 
 void detach(Client *c) {
@@ -310,6 +326,7 @@ void manage(Window w) {
 	updatewmhints(c); /* it may be asking for attention before we ever see it */
 	XSelectInput(dpy, w, EnterWindowMask|PropertyChangeMask|StructureNotifyMask);
 	attach(c);
+	attachstack(c);
 
 	if (!c->isfull) /* updatewindowtype already sized a fullscreen window */
 		resizeclient(c, c->x, c->y, c->w, c->h);
@@ -364,9 +381,10 @@ void unmanage(Window w) {
 	if ((wasfocused = (sel == c)))
 		sel = NULL;
 	detach(c);
+	detachstack(c);
 	free(c);
 	if (wasfocused)
-		focus(taghead[seltag]);
+		focus(NULL);
 	drawbar();
 }
 
@@ -395,7 +413,7 @@ void viewtag(int tag) {
 	seltag = tag;
 	FOREACH(c, tag)
 		showhide(c, 1);
-	focus(taghead[tag]);
+	focus(NULL);
 	drawbar();
 }
 
@@ -420,7 +438,7 @@ void movetotag(const Arg *arg) {
 	attach(c);
 	if (vis)
 		showhide(c, 0);
-	focus(taghead[seltag]);
+	focus(NULL);
 	drawbar();
 }
 
@@ -458,10 +476,16 @@ void focus(Client *c) {
 	 * pointing at nothing - dwm guards the same way */
 	if (c && !ISVISIBLE(c))
 		c = NULL;
+	/* nothing named, or what was named is not on this tag: take the most
+	 * recently focused window that is - dwm's focus(NULL) */
+	if (!c)
+		for (c = stack; c && !ISVISIBLE(c); c = c->snext);
 	if (sel && sel != c)
 		drawborder(sel, 0);
 	sel = c;
 	if (c) {
+		detachstack(c);
+		attachstack(c);
 		/* looking at the window is what answers its request for attention.
 		 * Guarded: focus() runs on every crossing, and updatewmhints is a
 		 * server round trip. */

@@ -34,6 +34,11 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
   or any status-bar script that does the same) on the right — the split
   follows dwm's `extrabar` patch as customized in the dwm fork.
 - Everything floats. No layouts, no master area, no gaps.
+- When a window closes, or you enter a tag, focus goes to the window you
+  were last on there rather than to whichever one happens to be first in the
+  list. This is dwm's focus stack: a second list threaded through every
+  client in most-recently-focused order, which is a different question from
+  the order `MODKEY+j`/`MODKEY+k` cycles through.
 - Focus follows the mouse, but hovering never raises. Raising is always a
   deliberate act: `MODKEY`+click, `MODKEY+j`/`MODKEY+k`, maximizing, or a
   window going fullscreen. dwm and sowm both keep focus and raise apart for

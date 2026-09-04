@@ -49,4 +49,8 @@ struct Client {
 	int hidden;                   /* WE unmapped it, for a tag switch */
 	int tag;
 	Client *next, *prev;          /* circular list, one per tag */
+	/* dwm's focus stack, a second list threaded through every client in
+	 * most-recently-focused order. It is what answers "what should take
+	 * focus now" when a window closes or a tag is entered. */
+	Client *snext;
 };
