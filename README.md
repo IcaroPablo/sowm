@@ -25,6 +25,10 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
 - 9 tags (`I`..`IX`), one visible at a time.
 - Vacant tags are hidden from the bar; the currently selected tag always
   shows even when empty.
+- A window on a tag you are not looking at can ask for attention - the ICCCM
+  urgency hint, which is what a chat client raises when a message arrives -
+  and its tag turns red in the bar. Viewing the tag clears it, on the
+  client's own window as well, so the application knows it was seen.
 - Bar is split into two windows at the top of the screen: tags on the left,
   status text (from the root window's `WM_NAME`, i.e. `xsetroot -name "..."`
   or any status-bar script that does the same) on the right — the split

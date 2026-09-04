@@ -60,6 +60,7 @@ static void togglefullscreen(const Arg *arg);
 static void quit(const Arg *arg);
 static void updatesizehints(Client *c);
 static void updatewindowtype(Client *c);
+static void updatewmhints(Client *c);
 static void view(const Arg *arg);
 
 #include "config.h"
@@ -80,7 +81,7 @@ static GC gc;
 static Visual *visual;
 static Colormap cmap;
 static int bh; /* bar height */
-static unsigned long bg_norm, bg_sel, border_norm, border_sel;
+static unsigned long bg_norm, bg_sel, bg_urg, border_norm, border_sel;
 static XftColor xftfg_norm, xftfg_sel;
 static Window tagwin, statuswin;
 static int showbar = 1;
@@ -306,7 +307,8 @@ void manage(Window w) {
 	configure(c); /* propagates border_width, if size doesn't change */
 	updatewindowtype(c); /* may already want to be fullscreen */
 	updatesizehints(c);
-	XSelectInput(dpy, w, EnterWindowMask|StructureNotifyMask);
+	updatewmhints(c); /* it may be asking for attention before we ever see it */
+	XSelectInput(dpy, w, EnterWindowMask|PropertyChangeMask|StructureNotifyMask);
 	attach(c);
 
 	if (!c->isfull) /* updatewindowtype already sized a fullscreen window */
@@ -460,6 +462,11 @@ void focus(Client *c) {
 		drawborder(sel, 0);
 	sel = c;
 	if (c) {
+		/* looking at the window is what answers its request for attention.
+		 * Guarded: focus() runs on every crossing, and updatewmhints is a
+		 * server round trip. */
+		if (c->isurgent)
+			updatewmhints(c);
 		drawborder(c, 1);
 		XSetInputFocus(dpy, c->win, RevertToPointerRoot, CurrentTime);
 		XChangeProperty(dpy, root, netatom[NetActiveWindow], XA_WINDOW, 32,
@@ -582,10 +589,11 @@ static void barblit(Pixmap pm, Window win, int w) {
 
 /* one cell of the bar: a filled box with a string in it. The tag cells and
  * the status cell differ only in their colours. */
-static void barcell(Pixmap pm, XftDraw *xd, int x, int w, const char *s, int cur) {
-	XSetForeground(dpy, gc, cur ? bg_sel : bg_norm);
+static void barcell(Pixmap pm, XftDraw *xd, int x, int w, const char *s, int cur,
+		int urg) {
+	XSetForeground(dpy, gc, urg ? bg_urg : cur ? bg_sel : bg_norm);
 	XFillRectangle(dpy, pm, gc, x, 0, w, bh);
-	XftDrawStringUtf8(xd, cur ? &xftfg_sel : &xftfg_norm, font, x + 8,
+	XftDrawStringUtf8(xd, cur || urg ? &xftfg_sel : &xftfg_norm, font, x + 8,
 			font->ascent + 2, (const FcChar8 *)s, (int)strlen(s));
 }
 
@@ -613,7 +621,14 @@ void drawbar(void) {
 	xd = XftDrawCreate(dpy, pm, visual, cmap);
 	x = 0;
 	for (i = 0; i < nvis; i++) {
-		barcell(pm, xd, x, widths[i], tags[vis[i]], vis[i] == seltag);
+		int urg = 0;
+
+		FOREACH(c, vis[i])
+			if (c->isurgent) {
+				urg = 1;
+				break;
+			}
+		barcell(pm, xd, x, widths[i], tags[vis[i]], vis[i] == seltag, urg);
 		x += widths[i];
 	}
 	XftDrawDestroy(xd);
@@ -623,7 +638,7 @@ void drawbar(void) {
 	XMoveResizeWindow(dpy, statuswin, sw - tw - bh - 2 * borderpx, bh, tw, bh);
 	pm = barpixmap(tw);
 	xd = XftDrawCreate(dpy, pm, visual, cmap);
-	barcell(pm, xd, 0, tw, stext, 0);
+	barcell(pm, xd, 0, tw, stext, 0, 0);
 	XftDrawDestroy(xd);
 	barblit(pm, statuswin, tw);
 }
@@ -830,16 +845,23 @@ void expose(XEvent *e) {
 		drawbar();
 }
 
-/* The only property smawm still watches is the root window's name, which is
- * how a status script feeds the bar (xsetroot -name, in a loop). dwm also
- * tracks per-client hint and window-type changes here; those went with the
- * rest of the ICCCM refinements - size hints are now read once when the
- * window is managed, and fullscreen still arrives as a ClientMessage. */
+/* Two properties are watched. The root window's name is how a status script
+ * feeds the bar (xsetroot -name, in a loop); WM_HINTS on a client is how an
+ * application asks for attention. dwm also tracks size-hint and window-type
+ * changes here; those went with the rest of the ICCCM refinements - size
+ * hints are read once when the window is managed, and fullscreen still
+ * arrives as a ClientMessage. */
 void propertynotify(XEvent *e) {
 	XPropertyEvent *ev = &e->xproperty;
+	Client *c;
 
 	if (ev->window == root && ev->atom == XA_WM_NAME)
 		updatestatus();
+	else if (ev->state != PropertyDelete && ev->atom == XA_WM_HINTS &&
+			(c = wintoclient(ev->window))) {
+		updatewmhints(c);
+		drawbar();
+	}
 }
 
 void clientmessage(XEvent *e) {
@@ -961,6 +983,30 @@ void updatewindowtype(Client *c) {
  * nothing sets an aspect ratio or a base distinct from its minimum. See
  * FEATURES.txt. ICCCM lets min and base stand in for each other, so a
  * client that publishes only a base still yields a minimum here. */
+/* dwm's updatewmhints, the urgency half of it. An application that wants you
+ * while you are looking at another tag raises XUrgencyHint on its own window;
+ * making that visible is the window manager's job, and with one tag on screen
+ * and vacant tags hidden from the bar it is the only signal there is that
+ * something happened elsewhere. dwm's version also reads the input hint into
+ * c->neverfocus, which went with the rest of WM_HINTS in the tier 2 cut. */
+void updatewmhints(Client *c) {
+	XWMHints *wmh;
+
+	if (!(wmh = XGetWMHints(dpy, c->win)))
+		return;
+	if (c == sel && (wmh->flags & XUrgencyHint)) {
+		/* you are already looking at it, so answer on the client's own
+		 * window too - left set, the hint fires again on every property
+		 * change and the tag never stops being urgent */
+		wmh->flags &= ~XUrgencyHint;
+		XSetWMHints(dpy, c->win, wmh);
+		c->isurgent = 0;
+	} else {
+		c->isurgent = (wmh->flags & XUrgencyHint) != 0;
+	}
+	XFree(wmh);
+}
+
 void updatesizehints(Client *c) {
 	long msize;
 	XSizeHints size;
@@ -1115,6 +1161,7 @@ void setup(void) {
 
 	bg_norm = getcolor(col_bg_norm);
 	bg_sel = getcolor(col_bg_sel);
+	bg_urg = getcolor(col_bg_urg);
 	border_norm = getcolor(col_border_norm);
 	border_sel = getcolor(col_border_sel);
 	XftColorAllocName(dpy, visual, cmap, col_fg_norm, &xftfg_norm);

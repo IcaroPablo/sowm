@@ -17,6 +17,7 @@ static const char col_bg_norm[]      = "#282828"; /* bg0 */
 static const char col_fg_norm[]      = "#ebdbb2"; /* fg1 */
 static const char col_bg_sel[]       = "#fe8019"; /* bright orange, matches col_border_sel */
 static const char col_fg_sel[]       = "#282828"; /* bg0, dark text for contrast on orange */
+static const char col_bg_urg[]       = "#fb4934"; /* bright red: a tag is asking for attention */
 static const char col_border_norm[]  = "#504945"; /* bg2 */
 static const char col_border_sel[]   = "#fe8019"; /* bright orange */
 

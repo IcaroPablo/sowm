@@ -45,7 +45,7 @@ struct Client {
 	 * sizes gets resized anyway and argues back. dwm also tracks base size,
 	 * resize increments, aspect ratio and isfixed; see updatesizehints(). */
 	int maxw, maxh, minw, minh;
-	int ismax, isfull;
+	int ismax, isfull, isurgent;
 	int hidden;                   /* WE unmapped it, for a tag switch */
 	int tag;
 	Client *next, *prev;          /* circular list, one per tag */
