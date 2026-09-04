@@ -319,6 +319,38 @@ void manage(Window w) {
 	drawbar();
 }
 
+/* Adopt the windows that were already on screen when smawm started, so
+ * restarting the window manager does not orphan everything that was running.
+ * This is sowm's win_init, from its `watch` branch: ask the server for the
+ * root's children and manage each one. dwm's scan() does the same job in 39
+ * sloc with getstate(), reading WM_STATE so a window the previous WM left
+ * iconified comes back iconified; smawm has no iconified state, so that round
+ * trip buys nothing here.
+ *
+ * What is kept from dwm is the IsViewable test. sowm maps every child it
+ * finds, which would drag a window the application had deliberately hidden
+ * back onto the screen - the same zombie unmanotify() exists to prevent.
+ * manage() rejects override-redirect windows on its own, which is what keeps
+ * the two bar windows out.
+ *
+ * Transients are managed in whatever order the server lists them, so one that
+ * comes before the window it belongs to lands on the current tag instead of
+ * its parent's. dwm spends a second pass over the list on that; at one dialog
+ * on the wrong tag after a restart, smawm does not. */
+void scan(void) {
+	unsigned int i, n;
+	Window d1, d2, *wins = NULL;
+	XWindowAttributes wa;
+
+	if (!XQueryTree(dpy, root, &d1, &d2, &wins, &n))
+		return;
+	for (i = 0; i < n; i++)
+		if (XGetWindowAttributes(dpy, wins[i], &wa) && wa.map_state == IsViewable)
+			manage(wins[i]);
+	if (wins)
+		XFree(wins);
+}
+
 void unmanage(Window w) {
 	Client *c = wintoclient(w);
 	int wasfocused;
@@ -1172,6 +1204,7 @@ int main(void) {
 	}
 	checkotherwm();
 	setup();
+	scan();
 	XSync(dpy, False);
 	run();
 	cleanup();
