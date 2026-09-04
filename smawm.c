@@ -396,8 +396,10 @@ void focusstack(const Arg *arg) {
 	if (!c)
 		return;
 	n = arg->i > 0 ? c->next : c->prev;
-	if (n != c)
+	if (n != c) {
 		focus(n);
+		XRaiseWindow(dpy, n->win);
+	}
 }
 
 /* ---- focus / borders ---- */
@@ -406,6 +408,17 @@ void drawborder(Client *c, int focused) {
 	XSetWindowBorder(dpy, c->win, focused ? border_sel : border_norm);
 }
 
+/* Focus does NOT raise, in either parent: dwm raises in restack() and sowm
+ * on a mod+click, and both leave win_focus/focus to the keyboard alone. smawm
+ * used to raise here, and since enternotify() calls focus(), the raise put a
+ * different window under the pointer, the server sent the crossing event that
+ * follows from that, and it came straight back in as another focus + raise.
+ * With a fullscreen window overlapping another one on the same tag, every
+ * restack flips which window the pointer is in, so the two windows traded
+ * places ~40k times a second: the event loop never went idle, the bar stopped
+ * being redrawn and the screen showed nothing but flickering borders. Raising
+ * is now the three deliberate acts below - mod+click, mod+j/k, and a window
+ * going fullscreen - none of which an X event can trigger in turn. */
 void focus(Client *c) {
 	/* focusing an unmapped window is a BadMatch that leaves the keyboard
 	 * pointing at nothing - dwm guards the same way */
@@ -419,7 +432,6 @@ void focus(Client *c) {
 		XSetInputFocus(dpy, c->win, RevertToPointerRoot, CurrentTime);
 		XChangeProperty(dpy, root, netatom[NetActiveWindow], XA_WINDOW, 32,
 				PropModeReplace, (unsigned char *)&(c->win), 1);
-		XRaiseWindow(dpy, c->win);
 	} else {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
 		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
@@ -620,6 +632,7 @@ void buttonpress(XEvent *e) {
 	if (!c)
 		return;
 	focus(c);
+	XRaiseWindow(dpy, c->win);
 	/* dwm's movemouse simply refuses a fullscreen window, which leaves no
 	 * way to move one but to un-fullscreen it by hand first. Telegram's
 	 * image preview opens fullscreen (it sets _NET_WM_STATE_FULLSCREEN

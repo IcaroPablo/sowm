@@ -30,6 +30,12 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
   or any status-bar script that does the same) on the right — the split
   follows dwm's `extrabar` patch as customized in `my-dwm-fork2`.
 - Everything floats. No layouts, no master area, no gaps.
+- Focus follows the mouse, but hovering never raises. Raising is always a
+  deliberate act: `MODKEY`+click, `MODKEY+j`/`MODKEY+k`, or a window going
+  fullscreen. dwm and sowm both keep focus and raise apart for
+  the same reason — a raise puts a different window under the pointer, and
+  if the crossing event that follows raises in turn, two overlapping windows
+  trade places forever. See FEATURES.txt.
 - `MODKEY`+drag with button 1 moves a window, button 3 resizes it (from the
   root, so it works no matter where on the window you grab).
 - `MODKEY+w` closes a window by killing its X connection outright. There is
