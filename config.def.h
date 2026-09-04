@@ -79,9 +79,11 @@ static Key keys[] = {
 	//{ 0,                   XF86XK_AudioMute,          spawn,            SHCMD("amixer -D pulse sset Master toggle") },
 	//{ 0,                   XF86XK_AudioLowerVolume,   spawn,            SHCMD("amixer -D pulse sset Master 5%-") },
 	//{ 0,                   XF86XK_AudioRaiseVolume,   spawn,            SHCMD("amixer -D pulse sset Master 5%+") },
-	{ MODKEY,              XF86XK_AudioMute,          spawn,            SHCMD("~/.scripts/sp play") },
-	{ MODKEY,              XF86XK_AudioLowerVolume,   spawn,            SHCMD("~/.scripts/sp prev") },
-	{ MODKEY,              XF86XK_AudioRaiseVolume,   spawn,            SHCMD("~/.scripts/sp next") },
+	/* ~/.scripts/sp no longer exists - there is no music script on this
+	 * machine any more, so these three did nothing when pressed */
+	//{ MODKEY,              XF86XK_AudioMute,          spawn,            SHCMD("~/.scripts/sp play") },
+	//{ MODKEY,              XF86XK_AudioLowerVolume,   spawn,            SHCMD("~/.scripts/sp prev") },
+	//{ MODKEY,              XF86XK_AudioRaiseVolume,   spawn,            SHCMD("~/.scripts/sp next") },
 	{ 0,                   XF86XK_MonBrightnessUp,    spawn,            SHCMD("xbacklight -inc 10") },
 	{ 0,                   XF86XK_MonBrightnessDown,  spawn,            SHCMD("xbacklight -dec 10") },
 };
