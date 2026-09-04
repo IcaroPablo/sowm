@@ -66,9 +66,17 @@ static Key keys[] = {
 	{ 0,                   XK_Print,                  spawn,            SHCMD("scrot -f -s -q 100 -e 'xclip -selection clipboard -target image/png -i $f && rm $f'") },
 	{ MODKEY,              XK_Print,                  spawn,            SHCMD("scrot -f -q 100 -e 'xclip -selection clipboard -target image/png -i $f && rm $f'") },
 
-	{ 0,                   XF86XK_AudioMute,          spawn,            SHCMD("amixer -D pulse sset Master toggle") },
-	{ 0,                   XF86XK_AudioLowerVolume,   spawn,            SHCMD("amixer -D pulse sset Master 5%-") },
-	{ 0,                   XF86XK_AudioRaiseVolume,   spawn,            SHCMD("amixer -D pulse sset Master 5%+") },
+	{ 0,                   XF86XK_AudioMute,          spawn,            SHCMD("wpctl set-mute @DEFAULT_SINK@ toggle") },
+	{ 0,                   XF86XK_AudioLowerVolume,   spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%-") },
+	{ 0,                   XF86XK_AudioRaiseVolume,   spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%+") },
+
+	/* the form these replaced. `amixer -D pulse` wants the ALSA PulseAudio
+	 * plugin, which this machine has not got - it runs PipeWire/WirePlumber,
+	 * so the keys silently did nothing ("Mixer attach pulse error"). Plain
+	 * `amixer sset Master ...` without -D works too, if wpctl ever goes away. */
+	//{ 0,                   XF86XK_AudioMute,          spawn,            SHCMD("amixer -D pulse sset Master toggle") },
+	//{ 0,                   XF86XK_AudioLowerVolume,   spawn,            SHCMD("amixer -D pulse sset Master 5%-") },
+	//{ 0,                   XF86XK_AudioRaiseVolume,   spawn,            SHCMD("amixer -D pulse sset Master 5%+") },
 	{ MODKEY,              XF86XK_AudioMute,          spawn,            SHCMD("~/.scripts/sp play") },
 	{ MODKEY,              XF86XK_AudioLowerVolume,   spawn,            SHCMD("~/.scripts/sp prev") },
 	{ MODKEY,              XF86XK_AudioRaiseVolume,   spawn,            SHCMD("~/.scripts/sp next") },
