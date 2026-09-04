@@ -1,24 +1,37 @@
-CFLAGS += -std=c99 -Wall -Wextra -pedantic -Wold-style-declaration
-CFLAGS += -Wmissing-prototypes -Wno-unused-parameter
-PREFIX ?= /usr
-BINDIR ?= $(PREFIX)/bin
-CC     ?= gcc
+VERSION = 0.1
+PREFIX  = /usr/local
 
-all: sowm
+PKGS = x11 xft
+
+CC = cc
+CFLAGS  = -std=c99 -Wall -Wextra -Os -D_DEFAULT_SOURCE -DVERSION=\"${VERSION}\" `pkg-config --cflags ${PKGS}`
+LDFLAGS = `pkg-config --libs ${PKGS}`
+
+SRC = smawm.c
+OBJ = ${SRC:.c=.o}
+
+all: smawm
 
 config.h:
-	cp config.def.h config.h
+	cp config.def.h $@
 
-sowm: sowm.c sowm.h config.h Makefile
-	$(CC) -O3 $(CFLAGS) -o $@ $< -lX11 $(LDFLAGS)
+${OBJ}: config.h smawm.h
 
-install: all
-	install -Dm755 sowm $(DESTDIR)$(BINDIR)/sowm
+.c.o:
+	${CC} -c ${CFLAGS} $<
 
-uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/sowm
+smawm: ${OBJ}
+	${CC} -o $@ ${OBJ} ${LDFLAGS}
 
 clean:
-	rm -f sowm *.o
+	rm -f smawm ${OBJ}
 
-.PHONY: all install uninstall clean
+install: all
+	mkdir -p ${DESTDIR}${PREFIX}/bin
+	cp -f smawm ${DESTDIR}${PREFIX}/bin
+	chmod 755 ${DESTDIR}${PREFIX}/bin/smawm
+
+uninstall:
+	rm -f ${DESTDIR}${PREFIX}/bin/smawm
+
+.PHONY: all clean install uninstall
