@@ -417,8 +417,8 @@ void drawborder(Client *c, int focused) {
  * restack flips which window the pointer is in, so the two windows traded
  * places ~40k times a second: the event loop never went idle, the bar stopped
  * being redrawn and the screen showed nothing but flickering borders. Raising
- * is now the three deliberate acts below - mod+click, mod+j/k, and a window
- * going fullscreen - none of which an X event can trigger in turn. */
+ * is now the four deliberate acts below - mod+click, mod+j/k, maximizing and
+ * a window going fullscreen - none of which an X event can trigger in turn. */
 void focus(Client *c) {
 	/* focusing an unmapped window is a BadMatch that leaves the keyboard
 	 * pointing at nothing - dwm guards the same way */
@@ -464,6 +464,7 @@ void togglemax(const Arg *arg) {
 		c->oldh = c->h;
 		c->ismax = 1;
 		resizemax(c);
+		XRaiseWindow(dpy, c->win);
 	}
 }
 

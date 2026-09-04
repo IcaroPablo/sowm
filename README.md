@@ -31,8 +31,8 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
   follows dwm's `extrabar` patch as customized in `my-dwm-fork2`.
 - Everything floats. No layouts, no master area, no gaps.
 - Focus follows the mouse, but hovering never raises. Raising is always a
-  deliberate act: `MODKEY`+click, `MODKEY+j`/`MODKEY+k`, or a window going
-  fullscreen. dwm and sowm both keep focus and raise apart for
+  deliberate act: `MODKEY`+click, `MODKEY+j`/`MODKEY+k`, maximizing, or a
+  window going fullscreen. dwm and sowm both keep focus and raise apart for
   the same reason — a raise puts a different window under the pointer, and
   if the crossing event that follows raises in turn, two overlapping windows
   trade places forever. See FEATURES.txt.
@@ -45,6 +45,9 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
   straight back, so it flips between the last two tags. dwm gets this from
   keeping two tag sets and flipping between them (`view` with argument 0);
   with a single selected tag it is one saved integer.
+- `MODKEY+space` maximizes a window to the screen minus a bar-height gap on
+  every side and raises it. Pressing it again restores the previous
+  geometry, and so does dragging the window.
 - `MODKEY+f` toggles fullscreen (covers the whole screen, no border, raised
   above the bar). Fullscreen also responds to
   `_NET_WM_STATE_FULLSCREEN` client messages, so browsers/video players
