@@ -66,9 +66,11 @@ static Key keys[] = {
 	{ 0,                   XK_Print,                  spawn,            SHCMD("scrot -f -s -q 100 -e 'xclip -selection clipboard -target image/png -i $f && rm $f'") },
 	{ MODKEY,              XK_Print,                  spawn,            SHCMD("scrot -f -q 100 -e 'xclip -selection clipboard -target image/png -i $f && rm $f'") },
 
-	{ 0,                   XF86XK_AudioMute,          spawn,            SHCMD("wpctl set-mute @DEFAULT_SINK@ toggle") },
-	{ 0,                   XF86XK_AudioLowerVolume,   spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%-") },
-	{ 0,                   XF86XK_AudioRaiseVolume,   spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%+") },
+	/* volume, on MODKEY+z/x/c - the keys the OpenBSD dwm config used. wpctl
+	 * talks to WirePlumber, which is what actually runs on this machine. */
+	{ MODKEY,              XK_z,                      spawn,            SHCMD("wpctl set-mute @DEFAULT_SINK@ toggle") },
+	{ MODKEY,              XK_x,                      spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%-") },
+	{ MODKEY,              XK_c,                      spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%+") },
 
 	/* the form these replaced. `amixer -D pulse` wants the ALSA PulseAudio
 	 * plugin, which this machine has not got - it runs PipeWire/WirePlumber,
