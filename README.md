@@ -32,7 +32,7 @@ A small floating window manager, merged from pieces of **dwm** and **sowm**:
 - Bar is split into two windows at the top of the screen: tags on the left,
   status text (from the root window's `WM_NAME`, i.e. `xsetroot -name "..."`
   or any status-bar script that does the same) on the right — the split
-  follows dwm's `extrabar` patch as customized in `my-dwm-fork2`.
+  follows dwm's `extrabar` patch as customized in the dwm fork.
 - Everything floats. No layouts, no master area, no gaps.
 - Focus follows the mouse, but hovering never raises. Raising is always a
   deliberate act: `MODKEY`+click, `MODKEY+j`/`MODKEY+k`, maximizing, or a
@@ -77,7 +77,7 @@ afterwards, `config.def.h` is just the template — same convention as dwm).
 Everything lives in `config.h`: `MODKEY`, colors, the font (an Xft/fontconfig
 pattern, e.g. `CozetteVector:pixelsize=13`; `monospace:size=10` is used
 automatically if the configured one fails to load), tags, and keybindings. `config.h` was seeded
-from the trimmed `my-dwm-fork2/config.h` keybindings/app choices — a few
+from the trimmed keybindings/app choices of the dwm fork's `config.h` — a few
 entries (`~/.scripts/sp`, `brave`, `ranger`, `slock`) assume tools from that
 setup; adjust or delete what doesn't apply to your machine.
 
