@@ -2,3 +2,4 @@ config.h
 smawm
 sowm
 *.o
+FEATURES.txt
