@@ -620,8 +620,14 @@ void buttonpress(XEvent *e) {
 	if (!c)
 		return;
 	focus(c);
+	/* dwm's movemouse simply refuses a fullscreen window, which leaves no
+	 * way to move one but to un-fullscreen it by hand first. Telegram's
+	 * image preview opens fullscreen (it sets _NET_WM_STATE_FULLSCREEN
+	 * before mapping), so that refusal is what "I cannot move the preview"
+	 * turned out to be. Taking hold of a window is a clear enough statement
+	 * that you want it windowed, so drop it out of fullscreen and drag it. */
 	if (c->isfull)
-		return; /* dwm's movemouse refuses fullscreen windows too */
+		setfullscreen(c, 0);
 	c->ismax = 0; /* dragging it is how you stop it being maximized */
 	dragc = c;
 	dragbutton = ev->button;
