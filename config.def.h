@@ -68,9 +68,9 @@ static Key keys[] = {
 
 	/* volume, on MODKEY+z/x/c - the keys the OpenBSD dwm config used. wpctl
 	 * talks to WirePlumber, which is what actually runs on this machine. */
-	{ MODKEY,              XK_z,                      spawn,            SHCMD("wpctl set-mute @DEFAULT_SINK@ toggle") },
-	{ MODKEY,              XK_x,                      spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%-") },
-	{ MODKEY,              XK_c,                      spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%+") },
+	{ MODKEY,              XK_z,                      spawn,            SHCMD("wpctl set-mute @DEFAULT_SINK@ toggle && kill -30 $(cat $HOME/.cache/barpid)") },
+	{ MODKEY,              XK_x,                      spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%- && kill -30 $(cat $HOME/.cache/barpid)") },
+	{ MODKEY,              XK_c,                      spawn,            SHCMD("wpctl set-volume @DEFAULT_SINK@ 5%+ && kill -30 $(cat $HOME/.cache/barpid)") },
 
 	/* the form these replaced. `amixer -D pulse` wants the ALSA PulseAudio
 	 * plugin, which this machine has not got - it runs PipeWire/WirePlumber,
@@ -84,6 +84,6 @@ static Key keys[] = {
 	//{ MODKEY,              XF86XK_AudioMute,          spawn,            SHCMD("~/.scripts/sp play") },
 	//{ MODKEY,              XF86XK_AudioLowerVolume,   spawn,            SHCMD("~/.scripts/sp prev") },
 	//{ MODKEY,              XF86XK_AudioRaiseVolume,   spawn,            SHCMD("~/.scripts/sp next") },
-	{ 0,                   XF86XK_MonBrightnessUp,    spawn,            SHCMD("xbacklight -inc 10") },
-	{ 0,                   XF86XK_MonBrightnessDown,  spawn,            SHCMD("xbacklight -dec 10") },
+	{ 0,                   XF86XK_MonBrightnessUp,    spawn,            SHCMD("xbacklight -inc 10 && kill -30 $(cat $HOME/.cache/barpid)") },
+	{ 0,                   XF86XK_MonBrightnessDown,  spawn,            SHCMD("xbacklight -dec 10 && kill -30 $(cat $HOME/.cache/barpid)") },
 };
